@@ -13,18 +13,32 @@ ZeroClaw is a zero-overhead AI assistant backend built entirely in Rust. The arc
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Gateway Layer                            │
-│  (OpenAI-Compatible API + SSE Streaming + Webhooks + TMA Auth)  │
+│  (OpenAI-Compatible API + Multimodal + SSE + TMA Auth)          │
+└───────────────────────────┬─────────────────────────────────────┘
+                            │
+┌───────────────────────────▼─────────────────────────────────────┐
+│                   Intelligent Routing                             │
+│  (Classifier → RateAwareRouter → SubAgentManager)               │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────────┐
 │                        Agent Loop                                │
-│  (Message Processing → Tool Execution → Response Generation)    │
+│  (A2A Swarm • Tool Execution • Response Generation)             │
 └───┬───────────┬───────────┬───────────┬───────────┬────────────┘
     │           │           │           │           │
 ┌───▼────┐ ┌───▼────┐ ┌───▼────┐ ┌───▼────┐ ┌────▼─────┐
 │Provider│ │Channel │ │ Memory │ │Security│ │  Tools   │
 │  Trait │ │  Trait │ │  Trait │ │  Trait │ │ Registry │
-└────────┘ └────────┘ └────────┘ └────────┘ └──────────┘
+└────────┘ └────────┘ └───┬────┘ └────────┘ └─────┬─────┘
+                           │                      │
+                  ┌──────────▼──────────┐        │
+                  │   Skills v2.0       │        │
+                  │ (VectorSkillLoader) │        │
+                  └─────────────────────┘        │
+                           │                      │
+                  ┌──────────▼─────────────────────▼─────┐
+                  │      SOP Engine • Qdrant Memory    │
+                  └──────────────────────────────────────┘
 ```
 
 ---
@@ -261,6 +275,189 @@ Uses the `inventory` crate for compile-time registration via the `inventory::sub
 
 ---
 
+### 8. Agent Swarm & A2A Communication (`src/agent/a2a.rs`)
+
+Multi-agent orchestration system for complex task decomposition and parallel execution.
+
+**Agent Roles:**
+```rust
+pub enum AgentRole {
+    Planner,    // Decomposes tasks, creates dependencies
+    Executor,   // Performs assigned tasks
+    Reviewer,   // Validates results and quality
+}
+```
+
+**A2A Message Types:**
+```rust
+pub enum A2AMessageType {
+    TaskAssignment { task_id, instructions, dependencies },
+    TaskProgress { task_id, percentage, current_step },
+    TaskCompletion { task_id, result_json, artifacts },
+    ClarificationRequest { task_id, question },
+}
+```
+
+**Use Cases:**
+- Multi-step task decomposition
+- Parallel execution with dependency tracking
+- Quality assurance with reviewer agents
+- Hierarchical agent orchestration
+
+---
+
+### 9. Intelligent Routing Module (`src/routing/`)
+
+Advanced request routing with rate-aware provider selection and cost optimization.
+
+**Components:**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| RateAwareRouter | `router.rs` | Provider selection based on rate limits |
+| UsageMonitor | `usage_monitor.rs` | Real-time usage tracking & sync |
+| Classifier | `classifier.rs` | Request type classification |
+| SubAgentManager | `subagent.rs` | Parallel subagent delegation |
+
+**Routing Configuration:**
+```toml
+[routing]
+enable_monitoring = true
+enable_classification = true
+enable_delegation = true
+fallback_threshold = 0.9  # Preemptive fallback at 90%
+sync_interval_secs = 300   # Usage sync every 5 minutes
+```
+
+**Features:**
+- Preemptive provider switching before rate limits
+- Request classification (code/creative/analytical)
+- Cost-aware routing decisions
+- Parallel subagent execution (configurable depth)
+
+---
+
+### 10. Skills v2.0 System (`src/skills/`)
+
+Modern skill loading with vector-based discovery and community repository integration.
+
+**Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| SkillsEngine | Skill search & lifecycle management |
+| VectorSkillLoader | Vector-based skill similarity search |
+| SkillEvaluator | Security validation & benchmarking |
+
+**Skill Manifest (SKILL.toml):**
+```toml
+[skill]
+name = "my_custom_skill"
+description = "Performs specialized task"
+version = "0.1.0"
+tags = ["automation", "productivity"]
+
+[[tools]]
+name = "analyze_data"
+kind = "http"
+command = "https://api.example.com/analyze"
+description = "Analyzes data via external API"
+
+[[prompts]]
+"You are an expert data analyst. Use the analyze_data tool..."
+```
+
+**Open-Skills Integration:**
+- Repository: https://github.com/besoeasy/open-skills
+- Auto-sync every 7 days
+- Configurable directory: `~/.zeroclaw/open-skills/`
+
+---
+
+### 11. Qdrant Vector Memory (`src/memory/qdrant.rs`)
+
+Semantic search with vector embeddings for intelligent memory retrieval.
+
+**Features:**
+- REST API integration with Qdrant
+- Pluggable embedding providers
+- Lazy collection initialization
+- Support for Qdrant Cloud (API key auth)
+
+**Embedding Providers:**
+| Provider | Models |
+|----------|--------|
+| OpenAI | text-embedding-3-small/large |
+| Ollama | nomic-embed-text, mxbai-embed-large |
+| Cohere | embed-english-v3.0 |
+
+**Configuration:**
+```toml
+[memory.qdrant]
+url = "http://localhost:6333"
+collection = "zeroclaw_memories"
+api_key = "optional-key"  # For Qdrant Cloud
+embedder = "openai"       # or "ollama", "cohere"
+```
+
+---
+
+### 12. SOP Workflows (`src/sop/`)
+
+Standard Operating Procedure engine for workflow automation with approval gates.
+
+**Components:**
+- `engine.rs` - SOP execution state machine
+- `types.rs` - SOP definitions (gates, conditions)
+- `dispatch.rs` - Request routing to SOP handlers
+- `gates.rs` - Conditional execution (auto/manual)
+- `audit.rs` - Execution audit trail
+
+**SOP Tools:**
+- `sop_execute` - Run a SOP workflow
+- `sop_status` - Check execution state
+- `sop_approve` - Approve a manual gate
+- `sop_list` - List available SOPs
+
+**SOP Definition:**
+```toml
+[name]
+sop_name = "Deployment Checklist"
+
+[[steps]]
+name = "Run tests"
+command = "cargo test"
+gate = "manual"  # Requires approval
+
+[[steps]]
+name = "Build release"
+command = "cargo build --release"
+gate = "auto"    # Automatic
+```
+
+---
+
+### 13. Multimodal Gateway (`src/gateway/openai_compat.rs`)
+
+Image and multimodal content support in OpenAI-compatible API.
+
+**Message Format:**
+```rust
+pub struct ChatCompletionsMessage {
+    pub role: String,
+    pub content: String,
+    pub image_urls: Vec<String>,  // base64 data URLs
+    // ... other fields
+}
+```
+
+**Features:**
+- Base64 image data URL support
+- Extracted from multimodal content (tldraw agent, etc.)
+- Automatic vision provider routing
+
+---
+
 ## Configuration
 
 **Location:** `~/.zeroclaw/config.toml`
@@ -319,15 +516,29 @@ policy_strict = true
      │ ChannelMessage
      ▼
 ┌─────────────────────────────────────┐
-│         Agent Loop                  │
+│      Intelligent Routing             │
 │  ┌─────────────────────────────┐   │
-│  │ 1. Load Memory (SQLite)     │   │
-│  │ 2. Build Prompt             │   │
-│  │ 3. Call Provider (LLM)      │   │
-│  │ 4. Parse Tool Calls         │   │
-│  │ 5. Execute Tools (Sandbox)  │   │
-│  │ 6. Store Results            │   │
-│  │ 7. Repeat until done        │   │
+│  │ 1. Classify Request Type    │   │
+│  │ 2. Check Rate Limits        │   │
+│  │ 3. Select Optimal Provider  │   │
+│  │ 4. Optionally Spawn Subagent│   │
+│  └─────────────────────────────┘   │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│         Agent Loop (A2A Swarm)      │
+│  ┌─────────────────────────────┐   │
+│  │ 1. Load Memory (Qdrant/SQLite)│  │
+│  │ 2. Load Skills (v2.0)       │   │
+│  │ 3. Build Prompt             │   │
+│  │ 4. Call Provider (LLM)      │   │
+│  │ 5. Parse Tool Calls         │   │
+│  │ 6. Execute Tools (Sandbox)  │   │
+│  │ 7. SOP Check (if applicable)│   │
+│  │ 8. Store Results            │   │
+│  │ 9. A2A Sync (if multi-agent)│  │
+│  │ 10. Repeat until done       │   │
 │  └─────────────────────────────┘   │
 └──────────────┬──────────────────────┘
                │ ChatResponse
@@ -392,6 +603,23 @@ codegen-units = 8    # Parallel codegen (faster builds)
 - **No Go/Node.js**: Rust-only backend
 - **Minimal RAM**: < 500MB per service
 - **Static linking**: musl targets for standalone binaries
+
+---
+
+## Unique Enhancements
+
+This ZeroClaw backend includes these **unique features** beyond standard ZeroClaw:
+
+| Feature | Description | Location |
+|---------|-------------|----------|
+| **Agent Swarm** | Multi-agent orchestration (Planner/Executor/Reviewer) | `src/agent/a2a.rs` |
+| **Intelligent Routing** | Rate-aware provider selection with classification | `src/routing/` |
+| **Skills v2.0** | VectorSkillLoader with open-skills sync | `src/skills/` |
+| **Qdrant Memory** | Semantic search with embedding providers | `src/memory/qdrant.rs` |
+| **SOP Engine** | Workflow automation with approval gates | `src/sop/` |
+| **Multimodal Gateway** | Image URL support in chat completions | `src/gateway/openai_compat.rs` |
+| **Auto-Router** | Virtual model for intelligent provider routing | `src/providers/router.rs` |
+| **Subagent Delegation** | Parallel task execution with depth limits | `src/routing/subagent.rs` |
 
 ---
 
