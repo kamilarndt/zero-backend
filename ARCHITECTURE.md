@@ -763,40 +763,607 @@ Data schema migrations and upgrades.
 
 System diagnostics and troubleshooting information.
 
+### 14. Hooks System (`src/hooks/`)
+
+Event-based extension system for runtime customization without code changes.
+
+**Core Trait:** `HookHandler` in `src/hooks/traits.rs`
+
+```rust
+#[async_trait]
+pub trait HookHandler: Send + Sync {
+    fn name(&self) -> &str;
+    fn priority(&self) -> i32 { 0 }
+
+    // Void hooks (parallel, fire-and-forget)
+    async fn on_gateway_start(&self, _host: &str, _port: u16) {}
+    async fn on_session_start(&self, _session_id: &str, _channel: &str) {}
+    async fn on_llm_input(&self, _messages: &[ChatMessage], _model: &str) {}
+    async fn on_llm_output(&self, _response: &ChatResponse) {}
+    async fn on_after_tool_call(&self, _tool: &str, _result: &ToolResult, _duration: Duration) {}
+
+    // Modifying hooks (sequential by priority, can cancel)
+    async fn before_model_resolve(&self, provider: String, model: String) -> HookResult<(String, String)> {
+        HookResult::Continue((provider, model))
+    }
+    async fn before_prompt_build(&self, prompt: String) -> HookResult<String> {
+        HookResult::Continue(prompt)
+    }
+}
+```
+
+**Hook Types:**
+- **Void hooks**: Fire-and-forget, run in parallel
+- **Modifying hooks**: Sequential by priority, can modify or cancel operations
+
+**Built-in Hooks:**
+- `command_logger`: Logs all shell commands
+- Custom hooks via `~/.zeroclaw/hooks/`
+
+---
+
+### 15. Observability (`src/observability/`)
+
+Monitoring and tracing system for production visibility.
+
+**Observer Events:**
+```rust
+pub enum ObserverEvent {
+    AgentStart { provider, model },
+    LlmRequest { provider, model, messages_count },
+    LlmResponse { provider, model, duration, success, input_tokens, output_tokens },
+    AgentEnd { provider, model, duration, tokens_used, cost_usd },
+    ToolCallStart { tool },
+    ToolCall { tool, duration, success },
+    TurnComplete,
+    ChannelMessage { channel, direction },
+    HeartbeatTick,
+}
+```
+
+**Backends:**
+- `noop` - No-op (default)
+- `verbose` - Console logging
+- `log` - Structured logging
+- `prometheus` - Prometheus metrics
+- `otel` - OpenTelemetry traces
+- `multi` - Multiple observers
+
+---
+
+### 16. Runtime Adapter (`src/runtime/`)
+
+Platform abstraction for porting ZeroClaw to different environments.
+
+**Core Trait:** `RuntimeAdapter` in `src/runtime/traits.rs`
+
+```rust
+pub trait RuntimeAdapter: Send + Sync {
+    fn name(&self) -> &str;
+    fn has_shell_access(&self) -> bool;
+    fn has_filesystem_access(&self) -> bool;
+    fn storage_path(&self) -> PathBuf;
+    fn supports_long_running(&self) -> bool;
+    fn memory_budget(&self) -> u64;
+}
+```
+
+**Implemented Runtimes:**
+| Runtime | Shell | FS | Long-Running | Description |
+|---------|-------|-------|--------------|-------------|
+| Native | ✅ | ✅ | ✅ | Standard Linux/macOS/Windows |
+| Docker | ✅ | ✅ | ✅ | Container environment |
+| WASM | ❌ | ❌ | ❌ | Browser/Edge (limited) |
+
+---
+
+### 17. Cron/Tasks (`src/cron/`)
+
+Scheduled task execution system.
+
+**Features:**
+- Cron expression scheduling (5-field format)
+- One-shot scheduled tasks (RFC3339 timestamp)
+- Fixed-interval recurring tasks
+- Delayed one-shot tasks ("30m", "2h", "1d")
+- Job types: `Shell`, `Agent`
+- Session targets: `Isolated`, `Main`
+
+**Configuration:**
+```toml
+[[jobs]]
+id = "daily_report"
+expression = "0 9 * * *"
+timezone = "America/New_York"
+job_type = "agent"
+command = "Generate daily usage report"
+```
+
+**CLI Tools:**
+- `cron_add`, `cron_list`, `cron_remove`
+- `cron_update`, `cron_pause`, `cron_resume`
+- `cron_runs` - execution history
+
+---
+
+### 18. Tunnel Providers (`src/tunnel/`)
+
+Reverse tunneling for exposing local gateway publicly.
+
+**Core Trait:** `Tunnel` in `src/tunnel/mod.rs`
+
+```rust
+#[async_trait]
+pub trait Tunnel: Send + Sync {
+    fn name(&self) -> &str;
+    async fn start(&self, local_host: &str, local_port: u16) -> Result<String>;
+    async fn stop(&self) -> Result<()>;
+    async fn health_check(&self) -> bool;
+    fn public_url(&self) -> Option<String>;
+}
+```
+
+**Providers:**
+| Provider | Binary | Description |
+|----------|---------|-------------|
+| Cloudflare | `cloudflared` | Cloudflare Tunnel |
+| Ngrok | `ngrok` | Ngrok tunnel |
+| Tailscale | `tailscale` | Tailscale funnels |
+| Custom | Custom command | Arbitrary tunnel binary |
+
+---
+
+### 19. Cost Tracking (`src/cost/`)
+
+Token usage and cost monitoring per provider.
+
+**Components:**
+- `tracker.rs` - Real-time cost accumulation
+- `types.rs` - Cost calculation types
+
+**Features:**
+- Per-request token tracking
+- Provider-specific pricing
+- Session-level aggregation
+- Budget alerts
+
+---
+
+### 20. Peripherals (`src/peripherals/`)
+
+Hardware integration for robotics/IoT applications.
+
+**Supported Boards:**
+- Arduino Uno (via serial)
+- STM32 Nucleo (via ST-Link)
+- ESP32 (via serial)
+- Raspberry Pi GPIO
+
+**Tools:**
+- `hardware_board_info` - Board information
+- `hardware_memory_map` - Memory map
+- `hardware_memory_read` - Read memory via probe-rs
+- `peripheral_flash` - Flash firmware
+
+---
+
+### 21. Hardware Discovery (`src/hardware/`)
+
+USB device enumeration and identification.
+
+**Features:**
+- USB VID/PID scanning
+- Board type detection (STM32 Nucleo, Arduino, ESP32)
+- Serial port discovery
+- Chip info via probe-rs
+
+---
+
+### 22. Authentication (`src/auth/`)
+
+OAuth and JWT authentication for providers.
+
+**Components:**
+- `anthropic_token.rs` - Anthropic token exchange
+- `gemini_oauth.rs` - Google OAuth flow
+- `openai_oauth.rs` - OpenAI OAuth flow
+- `jwt.rs` - JWT utilities
+- `profiles.rs` - Credential profiles
+
+---
+
+### 23. Onboarding (`src/onboard/`)
+
+First-run setup wizard.
+
+**Features:**
+- Interactive TUI wizard
+- Config file generation
+- Provider setup
+- Channel configuration
+- Memory backend selection
+
+---
+
+### 24. Heartbeat (`src/heartbeat/`)
+
+Keep-alive system for long-running sessions.
+
+**Features:**
+- Periodic ticks to prevent timeouts
+- Session health monitoring
+- Observer event emission
+
+---
+
+### 25. Doctor (`src/doctor/`)
+
+Diagnostic and troubleshooting system.
+
+**Features:**
+- Health checks for all components
+- Configuration validation
+- Connectivity tests
+- Remediation suggestions
+
+---
+
+### 26. Monitoring (`src/monitoring/`)
+
+System resource monitoring.
+
+**Features:**
+- CPU usage tracking
+- Memory usage tracking
+- Temperature monitoring (where available)
+
+---
+
+### 27. Approval (`src/approval/`)
+
+User approval workflow for sensitive operations.
+
+**Features:**
+- Interactive approval prompts
+- Approval history
+- Auto-approval rules
+
+---
+
+### 28. Integrations (`src/integrations/`)
+
+Third-party service integrations registry.
+
+**Features:**
+- Integration discovery
+- Capability querying
+- Configuration management
+
+---
+
+### 29. SkillForge (`src/skillforge/`)
+
+Skill scouting and integration tools.
+
+**Components:**
+- `scout.rs` - Find community skills
+- `integrate.rs` - Integrate new skills
+- `evaluate.rs` - Skill quality assessment
+
+---
+
+### 30. Health (`src/health/`)
+
+Health check endpoints and monitoring.
+
+---
+
+### 31. Migration (`src/migration.rs`)
+
+Data schema migrations and upgrades.
+
+---
+
+### 32. Diagnostic (`src/diagnostic.rs`)
+
+System diagnostics and troubleshooting information.
+
+---
+
+### 33. Agent Core Modules (`src/agent/`)
+
+Core agent implementation modules beyond the loop.
+
+**Modules:**
+- `agent.rs` - Main Agent struct with orchestration logic
+- `classifier.rs` - Request classification for routing
+- `dispatcher.rs` - Request dispatching to appropriate handlers
+- `hands.rs` - "Hands" functionality for computer control
+- `interruption.rs` - User interruption handling
+- `memory_loader.rs` - Memory loading for context
+- `prompt.rs` - System prompt construction
+- `streaming.rs` - Agent streaming response handling
+- `tasks_section.rs` - Tasks section in prompts
+- `workspace.rs` - Workspace management
+
+---
+
+### 34. Channel Implementations (`src/channels/`)
+
+Individual channel implementations beyond the core trait.
+
+**Messaging Platforms:**
+| Channel | File | Features |
+|---------|------|----------|
+| ClawdTalk | `clawdtalk.rs` | Custom ClawdTalk protocol |
+| DingTalk | `dingtalk.rs` | Alibaba DingTalk integration |
+| iMessage | `imessage.rs` | Apple iMessage via Applescript |
+| IRC | `irc.rs` | Internet Relay Chat |
+| Lark | `lark.rs` | Feishu/Lark (ByteDance) |
+| Linq | `linq.rs` | Linq protocol |
+| Mattermost | `mattermost.rs` | Mattermost integration |
+| MQTT | `mqtt.rs` | MQTT broker connection |
+| Nextcloud Talk | `nextcloud_talk.rs` | Nextcloud Talk |
+| Nostr | `nostr.rs` | Nostr protocol |
+| QQ | `qq.rs` | Tencent QQ |
+| Signal | `signal.rs` | Signal messenger |
+| Slack | `slack.rs` | Slack workspace |
+| Wati | `wati.rs` | Wati WhatsApp API |
+
+**WhatsApp Modules:**
+- `whatsapp.rs` - Business API client
+- `whatsapp_storage.rs` - SQLite storage for messages
+- `whatsapp_web.rs` - Native WhatsApp Web client
+
+**Telegram Extensions:**
+- `telegram_circuit_breaker.rs` - Rate limiting
+- `telegram_inline_keyboard.rs` - Inline keyboards
+- `telegram_keyboard_ext.rs` - Keyboard extensions
+- `telegram_menu_button.rs` - Menu button
+- `telegram_patch.rs` - API patches/workarounds
+
+**Utilities:**
+- `transcription.rs` - Audio/video transcription
+
+---
+
+### 35. Config System (`src/config/`)
+
+Configuration schema and validation.
+
+**Modules:**
+- `mod.rs` - Main Config struct
+- `schema.rs` - Auto-generated JSON schema
+- `routing.rs` - Routing-specific config
+- `schemas/llm_schema.rs` - LLM provider schemas
+- `schemas/memory_schema.rs` - Memory backend schemas
+- `schemas/security_schema.rs` - Security policy schemas
+- `traits.rs` - Config validation traits
+
+---
+
+### 36. Memory Sub-Modules (`src/memory/`)
+
+Memory backend implementations and utilities.
+
+**Backends:**
+- `sqlite.rs` - SQLite embedded database
+- `qdrant.rs` - Qdrant vector database
+- `postgres.rs` - PostgreSQL backend
+- `hybrid.rs` - Combined SQLite + Qdrant
+- `none.rs` - No-op testing backend
+- `lucid.rs` - Lucid dream/memory state
+- `cpu.rs` - CPU-based memory operations
+
+**Utilities:**
+- `backend.rs` - Backend selection and creation
+- `chunker.rs` - Text chunking for embeddings
+- `cli.rs` - Memory CLI commands
+- `embeddings.rs` - Embedding provider interface
+- `hygiene.rs` - Memory cleanup and maintenance
+- `markdown.rs` - Markdown formatting for memory
+- `response_cache.rs` - LLM response caching
+- `snapshot.rs` - Memory snapshot/restore
+- `tasks.rs` - Task-specific memory
+- `vector.rs` - Vector operations
+
+---
+
+### 37. Provider Implementations (`src/providers/`)
+
+Individual LLM provider implementations.
+
+| Provider | File | Features |
+|----------|------|----------|
+| Anthropic | `anthropic.rs` | Claude, native tools, vision |
+| OpenAI | `openai.rs` | GPT models, native tools |
+| Gemini | `gemini.rs` | Google Gemini, function calling |
+| GLM | `glm.rs` | Zhipu GLM-4 |
+| Ollama | `ollama.rs` | Local models |
+| Bedrock | `bedrock.rs` | AWS Bedrock |
+| OpenRouter | `openrouter.rs` | API aggregator |
+| Copilot | `copilot.rs` | GitHub Copilot |
+| Telnyx | `telnyx.rs` | Telnyx communications |
+
+**Shared:**
+- `common/` - HTTP client, SSE parser
+- `compatible.rs` - Compatibility shims
+- `reliable.rs` - Reliability features
+- `router.rs` - Virtual provider (auto-router)
+
+---
+
+### 38. Gateway Sub-Modules (`src/gateway/`)
+
+Gateway implementation details.
+
+| Module | Purpose |
+|--------|---------|
+| `api.rs` - Main API routes and handlers |
+| `openai_compat.rs` - OpenAI compatibility layer |
+| `openai_sse_types.rs` - SSE event type definitions |
+| `openai_streaming.rs` - Streaming implementation |
+| `sse.rs` - Server-Sent Events utilities |
+| `static_files.rs` - Embedded static file serving |
+| `telegram_threads.rs` - Telegram thread management |
+| `telegram_webhook.rs` - Telegram webhook handler |
+| `tma_auth.rs` - Telegram Mini App JWT auth |
+| `ws.rs` - WebSocket connection handler |
+| `tests/` - Integration tests |
+
+---
+
+### 39. Tools Catalog (`src/tools/`)
+
+Complete tool implementation catalog (50+ tools).
+
+**File Operations:** `file_read`, `file_write`, `file_edit`, `code_structure`
+**Shell & Execution:** `shell`, `delegate`, `subagent_spawn`
+**Memory:** `memory_store`, `memory_recall`, `memory_forget`
+**Web:** `web_search_tool`, `web_fetch`, `http_request`, `browser`, `browser_open`
+**Git:** `git_operations`
+**Hardware:** `hardware_board_info`, `hardware_memory_map`, `hardware_memory_read`
+**Cron:** `cron_add`, `cron_list`, `cron_remove`, `cron_run`, `cron_runs`, `cron_update`
+**SOP:** `sop_execute`, `sop_status`, `sop_approve`, `sop_list`, `sop_advance`
+**Utilities:** `cli_discovery`, `content_search`, `composio`, `examples`, `glob_search`, `image_info`, `pdf_read`, `proxy_config`, `pushover`, `screenshot`, `task_plan`
+**Registry:** `registry`, `traits`, `macros`, `schema`, `schema_builder`
+
+---
+
+### 40. Security Modules (`src/security/`)
+
+Security implementations beyond sandboxing.
+
+| Module | Purpose |
+|--------|---------|
+| `audit.rs` - Security audit logging |
+| `detect.rs` - Threat detection |
+| `docker.rs` - Docker-specific security |
+| `domain_matcher.rs` - Domain allowlist matching |
+| `estop.rs` - Emergency stop functionality |
+| `firejail.rs` - Firejail sandbox wrapper |
+| `landlock.rs` - Landlock sandbox wrapper |
+| `leak_detector.rs` - Credential leak detection |
+| `otp.rs` - One-time password generation |
+| `pairing.rs` - Device pairing |
+| `policy.rs` - Security policy enforcement |
+| `prompt_guard.rs` - Malicious prompt detection |
+| `secrets.rs` - Secret storage |
+
+---
+
+### 41. TUI Modules (`src/bin/tui/`)
+
+Terminal User Interface implementation.
+
+| Module | Purpose |
+|--------|---------|
+| `main.rs` - TUI entry point |
+| `app.rs` - Main TUI application |
+| `ui.rs` - UI rendering |
+| `events.rs` - Event handling |
+| `agents.rs` - Agent management UI |
+| `sessions.rs` - Session management UI |
+
+---
+
+### 42. Runtime Implementations (`src/runtime/`)
+
+Platform-specific runtime implementations.
+
+| Runtime | File | Purpose |
+|---------|------|--------|
+| Native | `native.rs` | Standard OS execution |
+| Docker | `docker.rs` | Container environment |
+| WASM | `wasm.rs` | Browser/Edge (limited) |
+
+---
+
+### 43. Observability Backends (`src/observability/`)
+
+Observer implementation backends.
+
+| Backend | File | Purpose |
+|---------|------|--------|
+| No-op | `noop.rs` | Disabled observability |
+| Verbose | `verbose.rs` | Console output |
+| Log | `log.rs` | Structured logging |
+| Prometheus | `prometheus.rs` - Prometheus metrics |
+| OTEL | `otel.rs` - OpenTelemetry traces |
+| Multi | `multi.rs` - Multiple observers |
+
+**Supporting:**
+- `traits.rs` - Observer trait definitions
+- `runtime_trace.rs` - Runtime tracing
+
+---
+
+### 44. SOP Sub-Modules (`src/sop/`)
+
+SOP workflow implementation details.
+
+| Module | Purpose |
+|--------|---------|
+| `condition.rs` - Condition evaluation |
+| `dispatch.rs` - Request dispatch to SOPs |
+| `gates.rs` - Gate execution (auto/manual) |
+| `metrics.rs` - SOP execution metrics |
+| `audit.rs` - SOP audit trail |
+
+---
+
+### 45. Skills Sub-Modules (`src/skills/`)
+
+Skills system implementation details.
+
+| Module | Purpose |
+|--------|---------|
+| `audit.rs` - Skill security audit |
+| `engine.rs` - Skills engine core |
+| `evaluator.rs` - Skill quality evaluator |
+| `loader.rs` - Skill loader interface |
+| `symlink_tests.rs` - Skill symlink tests |
+
+---
+
+### 46. Cron Sub-Modules (`src/cron/`)
+
+| Module | Purpose |
+|--------|---------|
+| `schedule.rs` - Cron expression parsing |
+| `scheduler.rs` - Job scheduler |
+| `store.rs` - Job persistence (SQLite) |
+| `types.rs` - Job type definitions |
+
+---
+
+### 47. Other Core Modules
+
+| Module | Purpose | Location |
+|--------|---------|----------|
+| `approval/mod.rs` | Approval workflow | `src/approval/` |
+| `daemon/mod.rs` | Daemon/service management | `src/daemon/` |
+| `diagnostic.rs` | Diagnostics output | `src/diagnostic.rs` |
+| `doctor/mod.rs` | Health check doctor | `src/doctor/` |
+| `health/mod.rs` | Health check endpoints | `src/health/` |
+| `heartbeat/engine.rs` | Keep-alive engine | `src/heartbeat/` |
+| `identity.rs` | Identity management | `src/identity.rs` |
+| `integrations/mod.rs` | Third-party integrations | `src/integrations/` |
+| `integrations/registry.rs` | Integration registry | `src/integrations/registry.rs` |
+| `lib.rs` | Library exports | `src/lib.rs` |
+| `main.rs` | Binary entry point | `src/main.rs` |
+| `migration.rs` | Data migrations | `src/migration.rs` |
+| `multimodal.rs` | Multimodal content processing | `src/multimodal.rs` |
+| `onboard/mod.rs` | Onboarding wizard | `src/onboard/` |
+| `onboard/wizard.rs` | Wizard UI | `src/onboard/wizard.rs` |
+| `rag/mod.rs` | Retrieval-Augmented Generation | `src/rag/` |
+| `service/mod.rs` | Service management | `src/service/` |
+| `tunnel/mod.rs` | Tunnel providers | `src/tunnel/` |
+| `util.rs` | Utility functions | `src/util.rs` |
+
 ---
 
 ## Configuration
-
-**Location:** `~/.zeroclaw/config.toml`
-
-**Schema:** Auto-generated from `struct Config` using `schemars` crate.
-
-**Key Sections:**
-```toml
-[agent]
-model = "claude-sonnet-4-20250514"
-temperature = 0.7
-max_tool_iterations = 10
-
-[memory]
-backend = "sqlite"
-
-[[providers]]
-name = "anthropic"
-api_key = "..."
-
-[[channels]]
-type = "telegram"
-bot_token = "..."
-
-[security]
-sandbox = "landlock"
-policy_strict = true
-```
-
----
-
-## Runtime Architecture
 
 **Daemon Mode:** ZeroClaw can run as a system service (systemd/svc).
 
