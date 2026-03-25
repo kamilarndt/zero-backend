@@ -78,6 +78,119 @@ The user you are assisting:
 
 ---
 
+## Claude Code Capabilities Reference
+
+When writing prompts for Claude Code, you can leverage these **built-in agents, commands, settings, hooks, and skills**. Use them to make your prompts more specific and powerful.
+
+### Available Agents (13)
+
+Specialized sub-agents for complex tasks:
+
+| Agent | Best For | Example Usage |
+|-------|----------|---------------|
+| **Test Engineer** | Writing and running tests | "Use the test-engineer agent to write comprehensive unit tests for the new provider" |
+| **AI Engineer** | AI/ML implementations | "Use the ai-engineer agent to implement embedding-based semantic search" |
+| **Documentation Expert** | Creating docs | "Use the documentation-expert agent to generate API documentation for the gateway module" |
+| **Unused Code Cleaner** | Removing dead code | "Use the unused-code-cleaner agent to find and remove unused imports and functions" |
+| **Debugger** | Investigating bugs | "Use the debugger agent to investigate the segmentation fault in the channel listener" |
+| **Context Manager** | Managing context window | "Use the context-manager agent to optimize the current conversation context" |
+| **Prompt Engineer** | Optimizing prompts | "Use the prompt-engineer agent to refine the tool call prompt for better accuracy" |
+| **Backend Architect** | Backend design | "Use the backend-architect agent to design the memory trait abstraction" |
+| **Fullstack Developer** | End-to-end features | "Use the fullstack-developer agent to implement the webhook flow" |
+| **Search Specialist** | Codebase searches | "Use the search-specialist agent to find all Provider trait implementations" |
+| **Technical Writer** | Writing content | "Use the technical-writer agent to write the README for this feature" |
+| **Technical Researcher** | Deep research | "Use the technical-researcher agent to research Rust async patterns" |
+| **Content Marketer** | Marketing content | "Use the content-marketer agent to write the feature announcement" |
+
+### Available Commands (12)
+
+Slash commands for quick actions:
+
+| Command | Purpose | Example Usage |
+|---------|---------|---------------|
+| `/generate-tests` | Generate tests | "Generate tests for the QdrantMemory backend" |
+| `/ultra-think` | Deep reasoning | "Use ultra-think to analyze the memory architecture trade-offs" |
+| `/create-architecture-documentation` | Create docs | "Create architecture documentation for the routing module" |
+| `/code-review` | Review code | "Run code-review on the provider implementation" |
+| `/refactor-code` | Refactor | "Refactor the channel trait to be more flexible" |
+| `/commit` | Git commit | "Commit the changes with message 'feat: add hybrid memory backend'" |
+| `/update-docs` | Update docs | "Update docs to reflect the new API changes" |
+| `/architecture-review` | Review architecture | "Run architecture-review on the agent swarm design" |
+| `/todo` | Task management | "Add a task to implement rate limiting" |
+| `/workflow-orchestrator` | Complex workflows | "Use workflow-orchestrator to plan the multi-provider implementation" |
+| `/feature` | Feature planning | "Use feature command to plan the new channel implementation" |
+| `/init-project` | New projects | "Initialize a new skill project structure" |
+
+### Available Settings (4)
+
+Configurable behaviors:
+
+| Setting | Purpose | When to Use |
+|---------|---------|-------------|
+| **Performance Optimization** | Speed/compute trade-offs | "Enable performance optimization settings for faster builds" |
+| **Development Utils** | Helper functions | "Enable development utils for better error messages" |
+| **Context Monitor** | Token tracking | "Enable context monitor to track token usage during long sessions" |
+| **Colorful Statusline** | Visual feedback | "Enable colorful statusline for better visibility" |
+
+### Available Hooks (3)
+
+Git hooks for automation:
+
+| Hook | Purpose | Example |
+|------|---------|---------|
+| **Simple Notifications** | Desktop notifications | "Use simple-notifications hook to alert on test failures" |
+| **Smart Commit** | Intelligent commits | "Use smart-commit hook to auto-generate commit messages" |
+| **Smart Formatting** | Auto-formatting | "Use smart-formatting hook to format code before commits" |
+
+### Available Skills (6)
+
+Custom extensions:
+
+| Skill | Purpose | Example |
+|-------|---------|---------|
+| **Skill Creator** | Create new skills | "Use skill-creator to generate a new database administration skill" |
+| **Senior Architect** | Architecture decisions | "Use senior-architect to validate the memory backend design" |
+| **Code Reviewer** | Review code quality | "Use code-reviewer to check for security issues" |
+| **Canvas Design** | Visual planning | "Use canvas-design to visualize the agent communication flow" |
+
+### Prompt Template Examples
+
+**Example 1 - Using Test Engineer Agent:**
+```
+Use the test-engineer agent to write comprehensive unit tests for the QdrantMemory backend in src/memory/qdrant.rs. Tests should cover:
+- Collection initialization
+- Store and recall operations
+- Error handling for API failures
+- Embedding provider integration
+```
+
+**Example 2 - Using Code Review Command:**
+```
+Run /code-review on the provider trait implementation in src/providers/traits.rs. Focus on:
+- Async/await best practices
+- Error handling completeness
+- Thread safety guarantees
+- Documentation clarity
+```
+
+**Example 3 - Using Multiple Agents:**
+```
+1. Use the search-specialist agent to find all Channel trait implementations
+2. Use the technical-researcher agent to research Rust async streaming patterns
+3. Use the backend-architect agent to design a unified streaming interface for all channels
+4. Use the test-engineer agent to write tests for the new streaming trait
+```
+
+**Example 4 - Using Hooks and Commands:**
+```
+Enable the smart-formatting hook, then:
+1. Run /refactor-code on the routing module to improve readability
+2. Run /code-review to verify the refactoring
+3. Use /commit to create a commit with message "refactor: improve routing module readability"
+```
+
+---
+
 ## ZeroClaw Architecture Overview
 
 ### Core Design Philosophy
