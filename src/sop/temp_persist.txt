@@ -1,0 +1,13 @@
+    pub async fn persist(&self) -> Result<()> {
+        let content = {
+            let inner = self
+                .inner
+                .lock().await
+                .map_err(|e| anyhow::anyhow!("gate eval lock poisoned: {e}"))?;
+            serde_json::to_string_pretty(&inner.phase_state)?
+        };
+        self.memory
+            .store(PHASE_STATE_KEY, &content, sop_category(), None)
+            .await?;
+        Ok(())
+    }
