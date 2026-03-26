@@ -14,29 +14,29 @@ pub mod sse;
 pub mod static_files;
 
 // Re-export OpenAI SSE types for streaming
-pub use openai_sse_types::{SSEChunk, DeltaChoice, DeltaDelta, ToolCallDelta, ToolFunction};
+pub use openai_sse_types::{DeltaChoice, DeltaDelta, SSEChunk, ToolCallDelta, ToolFunction};
 pub use openai_streaming::{convert_chunk_to_sse, format_sse_event};
-pub mod ws;
+pub mod openai_compat;
+pub mod telegram_threads;
 pub mod telegram_webhook;
 pub mod tma_auth;
-pub mod telegram_threads;
-pub mod openai_compat;
+pub mod ws;
 
 use crate::channels::{
     Channel, LinqChannel, NextcloudTalkChannel, SendMessage, WatiChannel, WhatsAppChannel,
 };
-use crate::config::Config;
 use crate::config::schema::SkillsConfig;
+use crate::config::Config;
 use crate::cost::CostTracker;
 use crate::memory::{self, Memory, MemoryCategory};
 use crate::providers::{self, ChatMessage, Provider};
 use crate::runtime;
 use crate::security::pairing::{constant_time_eq, is_public_bind, PairingGuard};
 use crate::security::SecurityPolicy;
+use crate::skills::{SkillEvaluator, SkillsEngine, VectorSkillLoader};
 use crate::tools;
 use crate::tools::traits::ToolSpec;
 use crate::util::truncate_with_ellipsis;
-use crate::skills::{SkillsEngine, VectorSkillLoader, SkillEvaluator};
 use anyhow::{Context, Result};
 use axum::{
     body::Bytes,
@@ -452,11 +452,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         // Clone the Arc<dyn Memory> - SkillsEngine now accepts Arc<dyn Memory>
         let qdrant_memory = Arc::clone(&mem);
 
-        match SkillsEngine::new(
-            &config.workspace_dir,
-            qdrant_memory,
-            embedder,
-        ) {
+        match SkillsEngine::new(&config.workspace_dir, qdrant_memory, embedder) {
             Ok(engine) => {
                 let engine_arc = Arc::new(engine);
 
@@ -467,10 +463,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
                     tracing::info!("🦾 SkillsEngine v2.0 initialized");
                 }
 
-                let loader = Arc::new(VectorSkillLoader::new(
-                    engine_arc.clone(),
-                    0.82,
-                ));
+                let loader = Arc::new(VectorSkillLoader::new(engine_arc.clone(), 0.82));
 
                 // Evaluator connects to local Ollama
                 let evaluator = Arc::new(SkillEvaluator::new(
@@ -494,18 +487,18 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
     let (event_tx, _event_rx) = tokio::sync::broadcast::channel::<serde_json::Value>(256);
 
     // Task classifier for intelligent model routing (zeroclaw-auto-router)
-    let classifier: Option<Arc<crate::routing::Classifier>> =
-        if config.query_classification.enabled {
-            let classifier = crate::routing::Classifier::new(
-                config.query_classification.clone()
-            );
-            tracing::info!("🧠 Task classifier initialized with {} rules",
-                          config.query_classification.rules.len());
-            Some(Arc::new(classifier))
-        } else {
-            tracing::debug!("Task classifier disabled (query_classification.enabled = false)");
-            None
-        };
+    let classifier: Option<Arc<crate::routing::Classifier>> = if config.query_classification.enabled
+    {
+        let classifier = crate::routing::Classifier::new(config.query_classification.clone());
+        tracing::info!(
+            "🧠 Task classifier initialized with {} rules",
+            config.query_classification.rules.len()
+        );
+        Some(Arc::new(classifier))
+    } else {
+        tracing::debug!("Task classifier disabled (query_classification.enabled = false)");
+        None
+    };
 
     // Extract webhook secret for authentication
     let webhook_secret_hash: Option<Arc<str>> =
@@ -791,19 +784,43 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/memory", get(api::handle_api_memory_list))
         .route("/api/memory", post(api::handle_api_memory_store))
         .route("/api/memory/{key}", delete(api::handle_api_memory_delete))
-        .route("/api/chat/history/{session_id}", get(api::handle_api_chat_history))
+        .route(
+            "/api/chat/history/{session_id}",
+            get(api::handle_api_chat_history),
+        )
         .route("/api/cost", get(api::handle_api_cost))
         .route("/api/cli-tools", get(api::handle_api_cli_tools))
         .route("/api/health", get(api::handle_api_health))
         // ── Telegram TMA (Zero-Bloat) ──
-        .route("/api/v1/telegram/webhook", post(telegram_webhook::handle_telegram_webhook))
-        .route("/api/v1/telegram/config/webhook", post(telegram_webhook::handle_telegram_webhook_config))
+        .route(
+            "/api/v1/telegram/webhook",
+            post(telegram_webhook::handle_telegram_webhook),
+        )
+        .route(
+            "/api/v1/telegram/config/webhook",
+            post(telegram_webhook::handle_telegram_webhook_config),
+        )
         .route("/api/v1/telegram/tma/auth", post(tma_auth::handle_tma_auth))
-        .route("/api/v1/telegram/threads", get(telegram_threads::get_threads))
-        .route("/api/v1/telegram/threads", post(telegram_threads::create_thread))
-        .route("/api/v1/telegram/threads/{id}/skills", put(telegram_threads::update_thread_skills))
-        .route("/api/v1/telegram/threads/active", post(telegram_threads::set_active_thread))
-        .route("/api/v1/telegram/available-skills", get(telegram_threads::get_available_skills))
+        .route(
+            "/api/v1/telegram/threads",
+            get(telegram_threads::get_threads),
+        )
+        .route(
+            "/api/v1/telegram/threads",
+            post(telegram_threads::create_thread),
+        )
+        .route(
+            "/api/v1/telegram/threads/{id}/skills",
+            put(telegram_threads::update_thread_skills),
+        )
+        .route(
+            "/api/v1/telegram/threads/active",
+            post(telegram_threads::set_active_thread),
+        )
+        .route(
+            "/api/v1/telegram/available-skills",
+            get(telegram_threads::get_available_skills),
+        )
         // ── Skills Management API (CRUD) ──
         .route("/api/v1/skills", get(api::handle_list_skills))
         .route("/api/v1/skills", post(api::skill_create))
@@ -812,6 +829,8 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         // ── TUI Dashboard API routes ──
         .route("/api/chat", post(api::handle_tui_chat))
         .route("/api/agents/active", get(api::handle_tui_agents_active))
+        .route("/api/memory/status", get(api::handle_tui_memory_status))
+        .route("/api/logs/status", get(api::handle_tui_logs_status))
         .route("/api/routing/status", get(api::handle_tui_routing_status))
         // ── Diagnostic API routes ──
         .route("/api/diagnostic", get(api::handle_diagnostic))
@@ -826,7 +845,10 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .route("/api/v1/tasks", post(api::handle_api_tasks_create))
         .route("/api/v1/tasks/{id}", put(api::handle_api_tasks_update))
         .route("/api/v1/tasks/{id}", delete(api::handle_api_tasks_delete))
-        .route("/api/v1/tasks/{id}/interrupt", post(api::handle_api_tasks_interrupt))
+        .route(
+            "/api/v1/tasks/{id}/interrupt",
+            post(api::handle_api_tasks_interrupt),
+        )
         // ── Memory Graph API ──
         .route("/api/v1/memory/graph", get(api::handle_api_memory_graph))
         // ── SOPs API ──
@@ -839,7 +861,10 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         // ── WebSocket agent chat ──
         .route("/ws/chat", get(ws::handle_ws_chat))
         // ── OpenAI-compatible API routes ──
-        .route("/v1/chat/completions", post(openai_compat::handle_v1_chat_completions))
+        .route(
+            "/v1/chat/completions",
+            post(openai_compat::handle_v1_chat_completions),
+        )
         .route("/v1/models", get(openai_compat::handle_v1_models))
         // ── Static assets (web dashboard) ──
         .route("/_app/{*path}", get(static_files::handle_static))
@@ -850,13 +875,19 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
-                .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PUT, axum::http::Method::DELETE, axum::http::Method::OPTIONS])
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
                 .allow_headers([
                     axum::http::header::CONTENT_TYPE,
                     axum::http::header::AUTHORIZATION,
                     axum::http::header::ACCEPT,
                     HeaderName::from_static("x-pairing-code"), // Required for mobile pairing
-                ])
+                ]),
         )
         .layer(RequestBodyLimitLayer::new(MAX_BODY_SIZE))
         .layer(TimeoutLayer::with_status_code(

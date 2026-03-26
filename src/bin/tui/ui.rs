@@ -19,7 +19,7 @@ use ratatui::{
 use std::sync::{Arc, Mutex};
 
 // Panel rendering functions
-use super::panels::{
+use crate::panels::{
     render_cost_panel, render_logs_panel, render_memory_panel, render_swarm_panel, CostPanelState,
     LogsPanelState, MemoryPanelState, SwarmPanelState,
 };
@@ -103,7 +103,7 @@ fn render_panels(frame: &mut Frame, app: &AppState, areas: Vec<Rect>) {
             }
             2 if app.panels.cost => {
                 // Try to get cost panel data, fallback to default
-                let state = if let Ok(cost_panel) = app.cost_panel.try_lock() {
+                let state = if let Some(cost_panel) = app.cost_panel.try_lock() {
                     CostPanelState {
                         visible: true,
                         cost_history: cost_panel.cost_history.clone(),
@@ -116,7 +116,7 @@ fn render_panels(frame: &mut Frame, app: &AppState, areas: Vec<Rect>) {
             }
             3 if app.panels.memory => {
                 // Try to get memory panel data, fallback to default
-                let state = if let Ok(memory_panel) = app.memory_panel.try_lock() {
+                let state = if let Some(memory_panel) = app.memory_panel.try_lock() {
                     MemoryPanelState {
                         visible: true,
                         backend: memory_panel.backend.clone(),
@@ -131,11 +131,11 @@ fn render_panels(frame: &mut Frame, app: &AppState, areas: Vec<Rect>) {
             }
             4 if app.panels.logs => {
                 // Try to get log panel data, fallback to default
-                let state = if let Ok(log_panel) = app.log_panel.try_lock() {
+                let state = if let Some(log_panel) = app.log_panel.try_lock() {
                     LogsPanelState {
                         visible: true,
                         log_level: LogLevel::Info,
-                        log_lines: log_panel.log_lines.clone(),
+                        log_lines: log_panel.log_lines.iter().cloned().collect(),
                         max_lines: 200,
                         scroll_offset: 0,
                     }

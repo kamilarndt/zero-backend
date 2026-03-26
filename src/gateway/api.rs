@@ -3,14 +3,14 @@
 //! All `/api/*` routes require bearer token authentication (PairingGuard).
 
 use super::AppState;
+use crate::auth::jwt;
+use crate::skills::Skill;
 use axum::{
-    extract::{Path, Query, State, Json},
+    extract::{Json, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use serde::Deserialize;
-use crate::auth::jwt;
-use crate::skills::Skill;
 
 const MASKED_SECRET: &str = "***MASKED***";
 
@@ -34,7 +34,7 @@ async fn require_auth(
     }
 
     let token = extract_bearer_token(headers).unwrap_or("");
-    
+
     // 1. Try JWT verification (new security standard)
     if let Ok(_claims) = jwt::verify_token(token, &state.jwt_secret) {
         return Ok(());
@@ -215,7 +215,8 @@ pub async fn handle_api_v1_config_get(
     // Extract provider info
     let default_provider = config.default_provider.clone().unwrap_or_default();
     let has_ollama = config.model_providers.contains_key("ollama");
-    let has_anthropic = default_provider.contains("anthropic") || default_provider.contains("claude");
+    let has_anthropic =
+        default_provider.contains("anthropic") || default_provider.contains("claude");
     let has_openai = default_provider.contains("openai") || default_provider.contains("gpt");
 
     // Transform ZeroClaw config to frontend-expected format
@@ -562,7 +563,8 @@ pub async fn handle_api_memory_graph(
             return Json(serde_json::json!({
                 "nodes": [],
                 "links": []
-            })).into_response();
+            }))
+            .into_response();
         }
     };
 
@@ -624,16 +626,17 @@ async fn get_embedding_for_key(key: &str) -> anyhow::Result<Option<Vec<f32>>> {
         use rusqlite::Connection;
         use std::path::PathBuf;
 
-        let db_path = PathBuf::from(format!("{}/memory/brain.db", std::env::var("HOME").unwrap_or_default()));
+        let db_path = PathBuf::from(format!(
+            "{}/memory/brain.db",
+            std::env::var("HOME").unwrap_or_default()
+        ));
 
         if !db_path.exists() {
             return Ok(None);
         }
 
         let conn = Connection::open(&db_path)?;
-        let mut stmt = conn.prepare(
-            "SELECT embedding FROM memories WHERE key = ?"
-        )?;
+        let mut stmt = conn.prepare("SELECT embedding FROM memories WHERE key = ?")?;
 
         let query_result = stmt.query_row([&key_owned], |row| {
             let blob: Vec<u8> = row.get(0)?;
@@ -649,7 +652,8 @@ async fn get_embedding_for_key(key: &str) -> anyhow::Result<Option<Vec<f32>>> {
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
             Err(e) => Err(e.into()),
         }
-    }).await?
+    })
+    .await?
 }
 
 /// GET /api/cost — cost summary
@@ -805,7 +809,8 @@ pub async fn handle_api_tasks_create(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(serde_json::json!({"error": "Missing required field: title"})),
-            ).into_response();
+            )
+                .into_response();
         }
     };
 
@@ -834,13 +839,17 @@ pub async fn handle_api_tasks_create(
 
     let _ = crate::memory::tasks::init_tasks_table(&conn);
 
-    let status = body.status.as_ref().and_then(|s| match s.as_str() {
-        "Todo" => Some(crate::memory::tasks::TaskStatus::Todo),
-        "InProgress" => Some(crate::memory::tasks::TaskStatus::InProgress),
-        "Review" => Some(crate::memory::tasks::TaskStatus::Review),
-        "Done" => Some(crate::memory::tasks::TaskStatus::Done),
-        _ => Some(crate::memory::tasks::TaskStatus::Todo),
-    }).unwrap_or(crate::memory::tasks::TaskStatus::Todo);
+    let status = body
+        .status
+        .as_ref()
+        .and_then(|s| match s.as_str() {
+            "Todo" => Some(crate::memory::tasks::TaskStatus::Todo),
+            "InProgress" => Some(crate::memory::tasks::TaskStatus::InProgress),
+            "Review" => Some(crate::memory::tasks::TaskStatus::Review),
+            "Done" => Some(crate::memory::tasks::TaskStatus::Done),
+            _ => Some(crate::memory::tasks::TaskStatus::Todo),
+        })
+        .unwrap_or(crate::memory::tasks::TaskStatus::Todo);
 
     let task = crate::memory::tasks::AgentTask::new(
         title.clone(),
@@ -937,7 +946,12 @@ pub async fn handle_api_tasks_update(
             }
         };
 
-        if let Err(e) = crate::memory::tasks::update_task_status(&conn, &id, status, body.assigned_hand.as_deref()) {
+        if let Err(e) = crate::memory::tasks::update_task_status(
+            &conn,
+            &id,
+            status,
+            body.assigned_hand.as_deref(),
+        ) {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({"error": format!("Failed to update task: {e}")})),
@@ -1592,40 +1606,46 @@ pub async fn handle_api_chat_history(
     let offset = params.offset.unwrap_or(0);
 
     // Try to use the new chat history method if available
-    let mem_result: Result<(Vec<crate::memory::MemoryEntry>, i64), anyhow::Error> = if let Some(sqlite_mem) = state.mem.as_any().downcast_ref::<crate::memory::sqlite::SqliteMemory>() {
-        // Use the optimized method
-        let entries: anyhow::Result<Vec<crate::memory::MemoryEntry>> = sqlite_mem.get_chat_history(&session_id, limit as i64, offset as i64).await;
-        let total: anyhow::Result<i64> = sqlite_mem.count_chat_messages(&session_id).await;
-        entries.map(|e| (e, total.unwrap_or(0)))
-    } else {
-        // Fallback to generic list method
-        let category = crate::memory::MemoryCategory::Conversation;
-        let entries_result: Result<Vec<crate::memory::MemoryEntry>, anyhow::Error> = state.mem.list(Some(&category), Some(&session_id)).await;
-        entries_result.map(|entries: Vec<crate::memory::MemoryEntry>| {
-            let total = entries.len() as i64;
-            let paginated: Vec<crate::memory::MemoryEntry> = entries
-                .into_iter()
-                .skip(offset as usize)
-                .take(limit as usize)
-                .collect();
-            (paginated, total)
-        })
-    };
+    let mem_result: Result<(Vec<crate::memory::MemoryEntry>, i64), anyhow::Error> =
+        if let Some(sqlite_mem) = state
+            .mem
+            .as_any()
+            .downcast_ref::<crate::memory::sqlite::SqliteMemory>()
+        {
+            // Use the optimized method
+            let entries: anyhow::Result<Vec<crate::memory::MemoryEntry>> = sqlite_mem
+                .get_chat_history(&session_id, limit as i64, offset as i64)
+                .await;
+            let total: anyhow::Result<i64> = sqlite_mem.count_chat_messages(&session_id).await;
+            entries.map(|e| (e, total.unwrap_or(0)))
+        } else {
+            // Fallback to generic list method
+            let category = crate::memory::MemoryCategory::Conversation;
+            let entries_result: Result<Vec<crate::memory::MemoryEntry>, anyhow::Error> =
+                state.mem.list(Some(&category), Some(&session_id)).await;
+            entries_result.map(|entries: Vec<crate::memory::MemoryEntry>| {
+                let total = entries.len() as i64;
+                let paginated: Vec<crate::memory::MemoryEntry> = entries
+                    .into_iter()
+                    .skip(offset as usize)
+                    .take(limit as usize)
+                    .collect();
+                (paginated, total)
+            })
+        };
 
     match mem_result {
-        Ok((entries, total)) => {
-            Json(serde_json::json!({
-                "success": true,
-                "data": entries,
-                "pagination": {
-                    "total": total,
-                    "offset": offset,
-                    "limit": limit,
-                    "has_more": (offset + limit) < total
-                }
-            }))
-            .into_response()
-        }
+        Ok((entries, total)) => Json(serde_json::json!({
+            "success": true,
+            "data": entries,
+            "pagination": {
+                "total": total,
+                "offset": offset,
+                "limit": limit,
+                "has_more": (offset + limit) < total
+            }
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": format!("Failed to fetch chat history: {e}")})),
@@ -1649,13 +1669,11 @@ pub async fn handle_api_sops_list(
     let category = crate::memory::MemoryCategory::Sop;
 
     match state.mem.list(Some(&category), None).await {
-        Ok(sops) => {
-            Json(serde_json::json!({
-                "success": true,
-                "data": sops
-            }))
-            .into_response()
-        }
+        Ok(sops) => Json(serde_json::json!({
+            "success": true,
+            "data": sops
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": format!("Failed to fetch SOPs: {e}")})),
@@ -1683,20 +1701,22 @@ pub async fn handle_api_sops_create(
     let id = format!("sop_{}", uuid::Uuid::new_v4());
     let content = format!("---\nname: {}\n---\n{}", body.name, body.yaml);
 
-    match state.mem.store(&id, &content, crate::memory::MemoryCategory::Sop, None).await {
-        Ok(_) => {
-            Json(serde_json::json!({
-                "success": true,
-                "data": {
-                    "id": id,
-                    "name": body.name,
-                    "yaml": body.yaml,
-                    "createdAt": chrono::Utc::now().to_rfc3339(),
-                    "updatedAt": chrono::Utc::now().to_rfc3339()
-                }
-            }))
-            .into_response()
-        }
+    match state
+        .mem
+        .store(&id, &content, crate::memory::MemoryCategory::Sop, None)
+        .await
+    {
+        Ok(_) => Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "id": id,
+                "name": body.name,
+                "yaml": body.yaml,
+                "createdAt": chrono::Utc::now().to_rfc3339(),
+                "updatedAt": chrono::Utc::now().to_rfc3339()
+            }
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": format!("Failed to create SOP: {e}")})),
@@ -1718,19 +1738,21 @@ pub async fn handle_api_sops_update(
 
     let content = format!("---\nname: {}\n---\n{}", body.name, body.yaml);
 
-    match state.mem.store(&id, &content, crate::memory::MemoryCategory::Sop, None).await {
-        Ok(_) => {
-            Json(serde_json::json!({
-                "success": true,
-                "data": {
-                    "id": id,
-                    "name": body.name,
-                    "yaml": body.yaml,
-                    "updatedAt": chrono::Utc::now().to_rfc3339()
-                }
-            }))
-            .into_response()
-        }
+    match state
+        .mem
+        .store(&id, &content, crate::memory::MemoryCategory::Sop, None)
+        .await
+    {
+        Ok(_) => Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "id": id,
+                "name": body.name,
+                "yaml": body.yaml,
+                "updatedAt": chrono::Utc::now().to_rfc3339()
+            }
+        }))
+        .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": format!("Failed to update SOP: {e}")})),
@@ -2103,14 +2125,12 @@ mod tests {
         let mut incoming = mask_sensitive_fields(&current);
         incoming.model_routes.swap(0, 1);
         incoming.embedding_routes.swap(0, 1);
-        incoming
-            .model_routes
-            .push(crate::config::ModelRouteConfig {
-                hint: "new".to_string(),
-                provider: "openai".to_string(),
-                model: "gpt-4.1".to_string(),
-                api_key: Some(MASKED_SECRET.to_string()),
-            });
+        incoming.model_routes.push(crate::config::ModelRouteConfig {
+            hint: "new".to_string(),
+            provider: "openai".to_string(),
+            model: "gpt-4.1".to_string(),
+            api_key: Some(MASKED_SECRET.to_string()),
+        });
         incoming
             .embedding_routes
             .push(crate::config::EmbeddingRouteConfig {
@@ -2170,7 +2190,8 @@ pub async fn handle_tui_chat(
     }
 
     // Extract session_id and content from request
-    let session_id = body.get("session_id")
+    let session_id = body
+        .get("session_id")
         .and_then(|v| v.as_str())
         .unwrap_or("default");
 
@@ -2182,8 +2203,9 @@ pub async fn handle_tui_chat(
                 Json(serde_json::json!({
                     "response": serde_json::Value::Null,
                     "error": "Missing or empty 'content' field"
-                }))
-            ).into_response();
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -2198,8 +2220,9 @@ pub async fn handle_tui_chat(
                 Json(serde_json::json!({
                     "response": serde_json::Value::Null,
                     "error": format!("Processing error: {}", e)
-                }))
-            ).into_response();
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -2228,7 +2251,8 @@ pub async fn handle_tui_chat(
     Json(serde_json::json!({
         "response": response,
         "error": null
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// GET /api/agents/active — List active subagents
@@ -2242,10 +2266,109 @@ pub async fn handle_tui_agents_active(
         return e.into_response();
     }
 
-    // TODO: Query actual subagent status from SubAgentManager
-    // For now, return empty array (no active agents)
-    // This would integrate with the routing module's subagent system
-    Json(serde_json::json!([])).into_response()
+    // Get active hands from HandsDispatcher
+    let active_hands = state.hands.list_active_hands().await;
+
+    // Convert hands to AgentStatus format for TUI
+    let mut agents = Vec::new();
+
+    for (hand_id, hand_state) in active_hands {
+        // For now, use hand info as agent info
+        // TODO: Also track subagent tasks from SubAgentManager
+        let agent = serde_json::json!({
+            "id": hand_id,
+            "name": format!("Hand: {}", hand_id),
+            "model": "hand",
+            "progress": if hand_state.token.is_cancelled() { 100 } else { 50 },
+            "status": if hand_state.token.is_cancelled() { "done" } else { "running" },
+            "current_task": hand_state.workspace_path.and_then(|p| p.file_name().map(|s| s.to_string_lossy().to_string())),
+        });
+        agents.push(agent);
+    }
+
+    // Also check for any active subagent tasks (TODO: integrate with RoutingManager)
+    // For now, just return hands
+    Json(agents).into_response()
+}
+
+/// GET /api/memory/status — Get memory system status
+///
+/// Response: {"backend": "sqlite", "total_memories": 42, "storage_bytes": 1048576, "recent_operations": [...]}
+pub async fn handle_tui_memory_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    // Get memory backend info
+    let backend_name = state.mem.name();
+    let total_memories = state.mem.count().await.unwrap_or(0);
+    let storage_bytes: u64 = 0; // TODO: implement storage_size in Memory trait
+
+    // Get recent memory operations (mock data for now)
+    let recent_operations: Vec<serde_json::Value> = vec![];
+
+    let response = serde_json::json!({
+        "backend": backend_name,
+        "total_memories": total_memories,
+        "storage_bytes": storage_bytes,
+        "recent_operations": recent_operations,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+
+    Json(response).into_response()
+}
+
+/// GET /api/logs/status — Get system logs status
+///
+/// Response: {"log_lines": [...], "total_lines": 42, "timestamp": "..."}
+pub async fn handle_tui_logs_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(e) = require_auth(&state, &headers).await {
+        return e.into_response();
+    }
+
+    // For now, return mock log data
+    // TODO: Integrate with tracing subscriber to capture actual logs
+    let now = chrono::Utc::now();
+    let mock_logs = serde_json::json!([
+        {
+            "level": "INFO",
+            "message": "ZeroClaw backend started",
+            "module": "zeroclaw::main",
+            "timestamp": (now - chrono::Duration::minutes(5)).to_rfc3339()
+        },
+        {
+            "level": "DEBUG",
+            "message": "Initializing memory backend",
+            "module": "zeroclaw::memory",
+            "timestamp": (now - chrono::Duration::minutes(4)).to_rfc3339()
+        },
+        {
+            "level": "WARN",
+            "message": "Rate limit approaching for openai provider",
+            "module": "zeroclaw::routing",
+            "timestamp": (now - chrono::Duration::minutes(2)).to_rfc3339()
+        },
+        {
+            "level": "ERROR",
+            "message": "Failed to connect to Qdrant vector database",
+            "module": "zeroclaw::memory::qdrant",
+            "timestamp": (now - chrono::Duration::minutes(1)).to_rfc3339()
+        }
+    ]);
+
+    let response = serde_json::json!({
+        "log_lines": mock_logs,
+        "total_lines": 4,
+        "timestamp": now.to_rfc3339(),
+    });
+
+    Json(response).into_response()
 }
 
 /// GET /api/routing/status — Get router status
@@ -2305,9 +2428,15 @@ pub async fn handle_diagnostic(
     let config = state.config.lock().clone();
     let checks = crate::diagnostic::run_diagnostics(&config).await;
 
-    let overall_status = if checks.iter().any(|c| c.status == crate::diagnostic::DiagnosticStatus::Fail) {
+    let overall_status = if checks
+        .iter()
+        .any(|c| c.status == crate::diagnostic::DiagnosticStatus::Fail)
+    {
         "error"
-    } else if checks.iter().any(|c| c.status == crate::diagnostic::DiagnosticStatus::Warn) {
+    } else if checks
+        .iter()
+        .any(|c| c.status == crate::diagnostic::DiagnosticStatus::Warn)
+    {
         "warning"
     } else {
         "ok"
@@ -2317,23 +2446,27 @@ pub async fn handle_diagnostic(
         "status": overall_status,
         "checks": checks,
         "timestamp": chrono::Utc::now().to_rfc3339(),
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// GET /api/validate — Quick configuration validation
 ///
 /// Validates the current configuration and returns any errors or warnings.
 /// Useful for CI/CD pipelines and pre-flight checks.
-pub async fn handle_validate_config(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn handle_validate_config(State(state): State<AppState>) -> impl IntoResponse {
     let config = state.config.lock().clone();
     let check = crate::diagnostic::validate_config(&config);
 
     let (status, message) = match check.status {
         crate::diagnostic::DiagnosticStatus::Pass => (StatusCode::OK, "Configuration is valid"),
-        crate::diagnostic::DiagnosticStatus::Warn => (StatusCode::OK, "Configuration valid with warnings"),
-        crate::diagnostic::DiagnosticStatus::Fail => (StatusCode::INTERNAL_SERVER_ERROR, "Configuration has errors"),
+        crate::diagnostic::DiagnosticStatus::Warn => {
+            (StatusCode::OK, "Configuration valid with warnings")
+        }
+        crate::diagnostic::DiagnosticStatus::Fail => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Configuration has errors",
+        ),
         crate::diagnostic::DiagnosticStatus::Skip => (StatusCode::OK, "Skipped"),
     };
 
@@ -2341,7 +2474,8 @@ pub async fn handle_validate_config(
         "status": status.as_u16(),
         "message": message,
         "check": check,
-    })).into_response()
+    }))
+    .into_response()
 }
 
 // ============================================================================
@@ -2363,23 +2497,27 @@ pub async fn handle_list_skills(
         Vec::new()
     };
 
-    let response: Vec<serde_json::Value> = skills.into_iter().map(|s| {
-        serde_json::json!({
-            "id": s.id,
-            "name": s.name,
-            "description": s.description,
-            "version": s.version,
-            "author": s.author,
-            "tags": s.tags,
-            "is_active": s.is_active,
-            "created_at": s.created_at,
+    let response: Vec<serde_json::Value> = skills
+        .into_iter()
+        .map(|s| {
+            serde_json::json!({
+                "id": s.id,
+                "name": s.name,
+                "description": s.description,
+                "version": s.version,
+                "author": s.author,
+                "tags": s.tags,
+                "is_active": s.is_active,
+                "created_at": s.created_at,
+            })
         })
-    }).collect();
+        .collect();
 
     Json(serde_json::json!({
         "skills": response,
         "count": response.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// POST /api/v1/skills - Create a new skill
@@ -2402,16 +2540,24 @@ pub async fn skill_create(
     let _engine = match &state.skill_engine {
         Some(e) => e.clone(),
         None => {
-            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "error": "Skills engine not available"
-            }))).into_response();
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": "Skills engine not available"
+                })),
+            )
+                .into_response();
         }
     };
 
     // TODO: Implement actual skill creation once Handler issue is resolved
-    (StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({
-        "error": "Skill creation not yet implemented due to Handler trait compatibility issue"
-    }))).into_response()
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(serde_json::json!({
+            "error": "Skill creation not yet implemented due to Handler trait compatibility issue"
+        })),
+    )
+        .into_response()
 }
 
 /// GET /api/v1/skills/:id - Get a skill by ID
@@ -2427,9 +2573,13 @@ pub async fn handle_get_skill(
     let engine = match &state.skill_engine {
         Some(e) => e,
         None => {
-            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "error": "Skills engine not available"
-            }))).into_response();
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": "Skills engine not available"
+                })),
+            )
+                .into_response();
         }
     };
 
@@ -2447,14 +2597,23 @@ pub async fn handle_get_skill(
                 "is_active": skill.is_active,
                 "created_at": skill.created_at,
                 "updated_at": skill.updated_at,
-            })).into_response()
-        },
-        Ok(None) => (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "error": "Skill not found"
-        }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-            "error": format!("{}", e)
-        }))).into_response(),
+            }))
+            .into_response()
+        }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Skill not found"
+            })),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": format!("{}", e)
+            })),
+        )
+            .into_response(),
     }
 }
 
@@ -2474,14 +2633,22 @@ pub async fn skill_delete(
     let _engine = match &state.skill_engine {
         Some(e) => e.clone(),
         None => {
-            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "error": "Skills engine not available"
-            }))).into_response();
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": "Skills engine not available"
+                })),
+            )
+                .into_response();
         }
     };
 
     // TODO: Implement actual skill deletion once Handler issue is resolved
-    (StatusCode::NOT_IMPLEMENTED, Json(serde_json::json!({
-        "error": "Skill deletion not yet implemented due to Handler trait compatibility issue"
-    }))).into_response()
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(serde_json::json!({
+            "error": "Skill deletion not yet implemented due to Handler trait compatibility issue"
+        })),
+    )
+        .into_response()
 }

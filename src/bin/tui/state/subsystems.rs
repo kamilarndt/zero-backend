@@ -6,6 +6,7 @@
 
 use chrono::{DateTime, Utc};
 use ratatui::style::Color;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 /// Agent swarm state snapshot
@@ -231,6 +232,12 @@ impl LogLevel {
     }
 }
 
+impl Default for LogLevel {
+    fn default() -> Self {
+        Self::Info
+    }
+}
+
 /// A single log line
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogLine {
@@ -256,19 +263,37 @@ pub struct LogLine {
 /// This runs in the background, polling the SubAgentManager for state
 /// and broadcasting updates to TUI panels.
 pub async fn swarm_update_task(
-    _channels: tokio::sync::watch::Sender<SwarmSnapshot>,
+    channels: tokio::sync::watch::Sender<SwarmSnapshot>,
 ) -> anyhow::Result<()> {
-    // TODO: Integrate with src/agent/a2a.rs SubAgentManager
-    // For now, just tick periodically
+    let client = reqwest::Client::new();
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+
     loop {
         interval.tick().await;
 
-        // In production, this would:
-        // 1. Query SubAgentManager for active agents
-        // 2. Get task progress from A2A message queue
-        // 3. Calculate throughput metrics
-        // 4. Broadcast snapshot via channels.send()
+        // Poll /api/agents/active
+        match client
+            .get("http://127.0.0.1:42617/api/agents/active")
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(agents) = response.json::<Vec<AgentInfo>>().await {
+                        let snapshot = SwarmSnapshot {
+                            active_agents: agents,
+                            tasks_completed: 0, // TODO: get from A2A stats
+                            throughput: 0.0,    // TODO: calculate
+                            timestamp: chrono::Utc::now(),
+                        };
+                        let _ = channels.send(snapshot);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch swarm state: {}", e);
+            }
+        }
     }
 }
 
@@ -276,18 +301,72 @@ pub async fn swarm_update_task(
 ///
 /// Polls the cost tracker for current spending and broadcasts updates.
 pub async fn cost_update_task(
-    _channels: tokio::sync::watch::Sender<CostSnapshot>,
+    channels: tokio::sync::watch::Sender<CostSnapshot>,
 ) -> anyhow::Result<()> {
-    // TODO: Integrate with src/cost/tracker.rs
+    let client = Client::new();
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+
     loop {
         interval.tick().await;
 
-        // In production, this would:
-        // 1. Query CostTracker for current session costs
-        // 2. Get daily/monthly aggregates
-        // 3. Build cost history sparkline
-        // 4. Broadcast snapshot via channels.send()
+        // Poll /api/cost
+        match client.get("http://127.0.0.1:42617/api/cost").send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(cost_response) = response.json::<serde_json::Value>().await {
+                        if let Some(cost_data) = cost_response.get("cost") {
+                            // Extract cost data
+                            let session_cost = cost_data
+                                .get("session_cost_usd")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            let daily_cost = cost_data
+                                .get("daily_cost_usd")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+                            let monthly_cost = cost_data
+                                .get("monthly_cost_usd")
+                                .and_then(|v| v.as_f64())
+                                .unwrap_or(0.0);
+
+                            // Calculate limits (use reasonable defaults)
+                            let daily_limit = 10.0; // $10 daily limit
+                            let monthly_limit = 100.0; // $100 monthly limit
+
+                            // Create cost history points
+                            let now = chrono::Utc::now();
+                            let cost_history = vec![CostDataPoint {
+                                timestamp: now,
+                                cumulative_cost_usd: daily_cost,
+                                request_cost_usd: 0.01,
+                            }];
+
+                            let daily_percent_used = if daily_limit > 0.0 {
+                                (daily_cost / daily_limit * 100.0).min(100.0)
+                            } else {
+                                0.0
+                            };
+
+                            let snapshot = CostSnapshot {
+                                session_cost_usd: session_cost,
+                                daily_cost_usd: daily_cost,
+                                monthly_cost_usd: monthly_cost,
+                                daily_limit_usd: daily_limit,
+                                monthly_limit_usd: monthly_limit,
+                                daily_percent_used,
+                                cost_history,
+                                timestamp: now,
+                            };
+
+                            let _ = channels.send(snapshot);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch cost state: {}", e);
+            }
+        }
     }
 }
 
@@ -295,18 +374,64 @@ pub async fn cost_update_task(
 ///
 /// Monitors memory operations and storage usage.
 pub async fn memory_update_task(
-    _channels: tokio::sync::watch::Sender<MemorySnapshot>,
+    channels: tokio::sync::watch::Sender<MemorySnapshot>,
 ) -> anyhow::Result<()> {
-    // TODO: Integrate with src/memory/mod.rs
+    let client = Client::new();
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+
     loop {
         interval.tick().await;
 
-        // In production, this would:
-        // 1. Query Memory backend for total count
-        // 2. Get storage size from filesystem
-        // 3. Capture recent operations from operation log
-        // 4. Broadcast snapshot via channels.send()
+        // Poll /api/memory/status
+        match client
+            .get("http://127.0.0.1:42617/api/memory/status")
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(memory_response) = response.json::<serde_json::Value>().await {
+                        let backend = memory_response
+                            .get("backend")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let total_memories = memory_response
+                            .get("total_memories")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0) as usize;
+                        let storage_bytes = memory_response
+                            .get("storage_bytes")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+
+                        // Parse recent operations
+                        let recent_operations = memory_response
+                            .get("recent_operations")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|op| serde_json::from_value(op.clone()).ok())
+                                    .collect()
+                            })
+                            .unwrap_or_else(Vec::new);
+
+                        let snapshot = MemorySnapshot {
+                            backend,
+                            total_memories,
+                            storage_bytes,
+                            recent_operations,
+                            timestamp: chrono::Utc::now(),
+                        };
+
+                        let _ = channels.send(snapshot);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch memory state: {}", e);
+            }
+        }
     }
 }
 
@@ -314,18 +439,46 @@ pub async fn memory_update_task(
 ///
 /// Subscribes to tracing events and filters for TUI consumption.
 pub async fn logs_update_task(
-    _channels: tokio::sync::watch::Sender<LogsSnapshot>,
+    channels: tokio::sync::watch::Sender<LogsSnapshot>,
 ) -> anyhow::Result<()> {
-    // TODO: Integrate with tracing-subscriber
-    let mut interval = tokio::time::interval(std::time::Duration::from_millis(500));
+    let client = Client::new();
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
     loop {
         interval.tick().await;
 
-        // In production, this would:
-        // 1. Subscribe to tracing events via tracing-appender
-        // 2. Filter by log level
-        // 3. Maintain rolling buffer of last 200 lines
-        // 4. Broadcast snapshot via channels.send()
+        // Poll /api/logs/status
+        match client
+            .get("http://127.0.0.1:42617/api/logs/status")
+            .send()
+            .await
+        {
+            Ok(response) => {
+                if response.status().is_success() {
+                    if let Ok(logs_response) = response.json::<serde_json::Value>().await {
+                        let log_lines = logs_response
+                            .get("log_lines")
+                            .and_then(|v| v.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|line| serde_json::from_value(line.clone()).ok())
+                                    .collect()
+                            })
+                            .unwrap_or_else(Vec::new);
+
+                        let snapshot = LogsSnapshot {
+                            log_lines,
+                            log_level: "INFO".to_string(),
+                            timestamp: chrono::Utc::now(),
+                        };
+
+                        let _ = channels.send(snapshot);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to fetch logs state: {}", e);
+            }
+        }
     }
 }
 

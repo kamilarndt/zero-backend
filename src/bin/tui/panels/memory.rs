@@ -7,9 +7,10 @@
 //! - Recent memory operations (store/recall/search/delete)
 //! - Memory category breakdown
 
-use crate::bin::tui::app::AppState;
-use crate::bin::tui::state::subsystems::{MemoryOpType, MemoryOperation};
+use crate::state::AppState;
+use crate::state::subsystems::{MemoryOpType, MemoryOperation};
 use ratatui::{
+    style::Stylize,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
@@ -37,7 +38,6 @@ pub struct MemoryPanelState {
 }
 
 /// Re-export types from subsystems for external use
-pub use crate::bin::tui::state::subsystems::{MemoryOpType, MemoryOperation};
 
 /// Render the memory panel
 pub fn render_memory_panel(
@@ -95,7 +95,7 @@ pub fn render_memory_panel(
             let status_symbol = if op.success { "✓" } else { "✗" };
             let status_color = if op.success { Color::Green } else { Color::Red };
 
-            let op_color = op.op_type.color();
+            let op_color = op.op_type.clone().color();
 
             text.push_line(Line::from(vec![
                 Span::styled(status_symbol, Style::default().fg(status_color)),

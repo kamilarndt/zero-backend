@@ -14,16 +14,16 @@ use std::time::Instant;
 /// Created once at startup and passed to async update tasks.
 pub struct TuiStateChannels {
     /// Agent swarm state transmitter
-    swarm_tx: watch::Sender<SwarmSnapshot>,
+    pub swarm_tx: watch::Sender<SwarmSnapshot>,
 
     /// Cost tracking state transmitter
-    cost_tx: watch::Sender<CostSnapshot>,
+    pub cost_tx: watch::Sender<CostSnapshot>,
 
     /// Memory system state transmitter
-    memory_tx: watch::Sender<MemorySnapshot>,
+    pub memory_tx: watch::Sender<MemorySnapshot>,
 
     /// System logs state transmitter
-    logs_tx: watch::Sender<LogsSnapshot>,
+    pub logs_tx: watch::Sender<LogsSnapshot>,
 
     /// When state updates were last initiated
     last_update: Instant,

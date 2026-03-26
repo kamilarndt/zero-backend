@@ -10,7 +10,8 @@ pub mod subsystems;
 pub use channels::{TuiStateChannels, StateSnapshot};
 pub use subsystems::{
     SwarmSnapshot, CostSnapshot, MemorySnapshot, LogsSnapshot,
-    swarm_update_task, cost_update_task, memory_update_task, logs_update_task
+    swarm_update_task, cost_update_task, memory_update_task, logs_update_task,
+    LogLevel, MemoryOpType, MemoryOperation,
 };
 
 use std::sync::Arc;
@@ -674,22 +675,23 @@ impl LogPanel {
     }
 
     pub fn add_demo_logs(&mut self) {
+        use super::subsystems::LogLevel;
         let now = chrono::Utc::now();
         self.log_lines = vec![
             LogLine {
-                level: "INFO".to_string(),
+                level: LogLevel::Info,
                 message: "Starting agent iteration".to_string(),
                 module: Some("agent::loop".to_string()),
                 timestamp: now - chrono::Duration::minutes(1),
             },
             LogLine {
-                level: "DEBUG".to_string(),
+                level: LogLevel::Debug,
                 message: "Received TaskAssignment from planner".to_string(),
                 module: Some("agent::a2a".to_string()),
                 timestamp: now - chrono::Duration::minutes(1),
             },
             LogLine {
-                level: "WARN".to_string(),
+                level: LogLevel::Warn,
                 message: "Rate limit approaching (85%)".to_string(),
                 module: Some("provider::openai".to_string()),
                 timestamp: now - chrono::Duration::seconds(30),

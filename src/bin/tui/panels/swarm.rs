@@ -7,9 +7,11 @@
 //! - Swarm throughput metrics
 //! - Tasks completed counter
 
-use crate::bin::tui::app::{AgentState, AppState};
-use crate::bin::tui::state::subsystems::{AgentInfo, AgentStatus};
+use crate::state::AppState;
+use crate::app::AgentState;
+use crate::state::subsystems::{AgentInfo, AgentStatus};
 use ratatui::{
+    style::Stylize,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
@@ -40,7 +42,7 @@ pub fn render_swarm_panel(frame: &mut Frame, area: Rect, app: &AppState, state: 
     let mut text = Text::default();
 
     // Access agents from the swarm panel
-    let swarm_agents = if let Ok(swarm) = app.swarm_panel.try_lock() {
+    let swarm_agents = if let Some(swarm) = app.swarm_panel.try_lock() {
         swarm.agents.clone()
     } else {
         Vec::new()
@@ -161,8 +163,8 @@ impl From<AgentState> for AgentStatus {
 }
 
 /// Convert app AgentStatus to subsystem AgentInfo
-impl From<&crate::bin::tui::app::AgentStatus> for AgentInfo {
-    fn from(app_agent: &crate::bin::tui::app::AgentStatus) -> Self {
+impl From<&crate::app::AgentStatus> for AgentInfo {
+    fn from(app_agent: &crate::app::AgentStatus) -> Self {
         AgentInfo {
             id: app_agent.id.clone(),
             name: app_agent.name.clone(),
@@ -189,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_agent_status_conversion() {
-        let app_status = crate::bin::tui::app::AgentStatus {
+        let app_status = crate::app::AgentStatus {
             id: uuid::Uuid::new_v4().to_string(),
             name: "Test".to_string(),
             model: "gpt-4".to_string(),

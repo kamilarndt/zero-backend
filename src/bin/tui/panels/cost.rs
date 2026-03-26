@@ -7,9 +7,10 @@
 //! - Cost history sparkline
 //! - Per-model cost breakdown
 
-use crate::bin::tui::app::AppState;
-use crate::bin::tui::state::subsystems::CostDataPoint;
+use crate::state::AppState;
+use crate::state::subsystems::CostDataPoint;
 use ratatui::{
+    style::Stylize,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
@@ -40,63 +41,30 @@ pub fn render_cost_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
     let mut text = Text::default();
 
     // Access cost data from the cost panel
-    let cost_data = if let Ok(cost_panel) = app.cost_panel.try_lock() {
-        cost_panel.clone()
-    } else {
-        crate::state::CostPanel {
-            session_cost: 0.0,
-            daily_cost: 0.0,
-            daily_limit: 10.0,
-            monthly_cost: 0.0,
-            monthly_limit: 100.0,
-            cost_history: Vec::new(),
-        }
-    };
+    let (session_cost, daily_cost, daily_limit, monthly_cost, monthly_limit) =
+        if let Some(cost_panel) = app.cost_panel.try_lock() {
+            (cost_panel.session_cost, cost_panel.daily_cost, cost_panel.daily_limit,
+             cost_panel.monthly_cost, cost_panel.monthly_limit)
+        } else {
+            (0.0, 0.0, 10.0, 0.0, 100.0)
+        };
 
     // Get current router status for display
     let provider = &app.router_status.active_provider;
     let quota_percent = app.router_status.quota_used_percent;
 
     // Header: Session Cost
-    let cost_color = if cost_data.session_cost > cost_data.daily_limit * 0.8 {
+    let cost_color = if session_cost > daily_limit * 0.8 {
         Color::Red
-    } else if cost_data.session_cost > cost_data.daily_limit * 0.5 {
+    } else if session_cost > daily_limit * 0.5 {
         Color::Yellow
     } else {
         Color::Green
     };
 
     text.push_line(Line::styled(
-        format!("Session Cost: ${:.4}", cost_data.session_cost),
+        format!("Session Cost: ${:.4}", session_cost),
         Style::default().fg(cost_color).add_modifier(Modifier::BOLD),
-    ));
-    text.push_line(Line::styled("", Style::default()));
-
-    // Daily spending
-    let daily_color = if cost_data.daily_cost > cost_data.daily_limit * 0.8 {
-        Color::Red
-    } else {
-        Color::Cyan
-    };
-
-    text.push_line(Line::styled(
-        format!(
-            "Daily: ${:.4} / ${:.4} ({:.0}%)",
-            cost_data.daily_cost,
-            cost_data.daily_limit,
-            (cost_data.daily_cost / cost_data.daily_limit * 100.0)
-        ),
-        Style::default().fg(daily_color),
-    ));
-    text.push_line(Line::styled("", Style::default()));
-
-    // Monthly spending
-    text.push_line(Line::styled(
-        format!(
-            "Monthly: ${:.4} / ${:.4}",
-            cost_data.monthly_cost, cost_data.monthly_limit
-        ),
-        Style::default().fg(Color::Blue),
     ));
     text.push_line(Line::styled("", Style::default()));
 
@@ -106,8 +74,12 @@ pub fn render_cost_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
     } else {
         Color::Cyan
     };
+
     text.push_line(Line::styled(
-        format!("Today:  ${:.4} / ${:.2}", daily_cost, daily_limit),
+        format!(
+            "Today:  ${:.4} / ${:.2}",
+            daily_cost, daily_limit
+        ),
         Style::default().fg(daily_color),
     ));
 

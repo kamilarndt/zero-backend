@@ -8,15 +8,15 @@
 mod agents;
 mod app;
 mod events;
+mod panels;
 mod sessions;
-mod ui;
 mod state;
+mod ui;
 
 #[cfg(test)]
 mod e2e_tests;
 
 use agents::ZeroClawClient;
-use state::*;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -24,6 +24,7 @@ use crossterm::{
 };
 use events::{map_key_event, AppEvent};
 use ratatui::{backend::CrosstermBackend, Terminal};
+use state::*;
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -125,7 +126,7 @@ fn main() {
 /// Async main function
 async fn async_main() -> anyhow::Result<()> {
     // Check for demo mode
-    let demo_mode = std::env::var(DEMO_MODE_ENV).is_ok() || true; // Force demo for now to show off panels
+    let demo_mode = std::env::var(DEMO_MODE_ENV).is_ok();
 
     // Terminal setup
     enable_raw_mode()?;
@@ -148,12 +149,61 @@ async fn async_main() -> anyhow::Result<()> {
         Some(ZeroClawClient::localhost())
     };
 
+    // Create state channels for async updates
+    let channels = TuiStateChannels::new();
+
+    // Spawn update tasks
+    let swarm_handle = tokio::spawn(subsystems::swarm_update_task(channels.swarm_tx.clone()));
+    let cost_handle = tokio::spawn(subsystems::cost_update_task(channels.cost_tx.clone()));
+    let memory_handle = tokio::spawn(subsystems::memory_update_task(channels.memory_tx.clone()));
+    let logs_handle = tokio::spawn(subsystems::logs_update_task(channels.logs_tx.clone()));
+
+    // Subscribe to updates
+    let mut swarm_rx = channels.subscribe_swarm();
+    let mut cost_rx = channels.subscribe_cost();
+    let mut memory_rx = channels.subscribe_memory();
+    let mut logs_rx = channels.subscribe_logs();
+
     // Main event loop
     let mut help_visible = false;
     let mut last_tick = Instant::now();
     let tick_rate = Duration::from_millis(100);
 
     loop {
+        // Check for state updates (non-blocking)
+        if swarm_rx.has_changed().unwrap_or(false) {
+            let snapshot = swarm_rx.borrow_and_update().clone();
+            let mut swarm_panel = app.swarm_panel.lock();
+            swarm_panel.agents = snapshot.active_agents;
+            swarm_panel.tasks_completed = snapshot.tasks_completed;
+            swarm_panel.throughput = snapshot.throughput;
+        }
+
+        if cost_rx.has_changed().unwrap_or(false) {
+            let snapshot = cost_rx.borrow_and_update().clone();
+            let mut cost_panel = app.cost_panel.lock();
+            cost_panel.session_cost = snapshot.session_cost_usd;
+            cost_panel.daily_cost = snapshot.daily_cost_usd;
+            cost_panel.daily_limit = snapshot.daily_limit_usd;
+            cost_panel.monthly_cost = snapshot.monthly_cost_usd;
+            cost_panel.monthly_limit = snapshot.monthly_limit_usd;
+        }
+
+        if memory_rx.has_changed().unwrap_or(false) {
+            let snapshot = memory_rx.borrow_and_update().clone();
+            let mut memory_panel = app.memory_panel.lock();
+            memory_panel.backend = snapshot.backend;
+            memory_panel.total_memories = snapshot.total_memories;
+            memory_panel.storage_bytes = snapshot.storage_bytes;
+            memory_panel.recent_operations = snapshot.recent_operations;
+        }
+
+        if logs_rx.has_changed().unwrap_or(false) {
+            let snapshot = logs_rx.borrow_and_update().clone();
+            let mut log_panel = app.log_panel.lock();
+            log_panel.log_lines = snapshot.log_lines.into();
+        }
+
         // Update mock data periodically
         if demo_mode && last_tick.elapsed() >= Duration::from_secs(1) {
             update_mock_data(&mut app);
@@ -283,7 +333,10 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
                         .unwrap_or_default();
                     let agent_hint = app.selected_agent();
 
-                    match client.send_message_with_agent(&session_id, &message, Some(&agent_hint)).await {
+                    match client
+                        .send_message_with_agent(&session_id, &message, Some(&agent_hint))
+                        .await
+                    {
                         Ok(response) => {
                             app.add_assistant_message(response, None);
                         }

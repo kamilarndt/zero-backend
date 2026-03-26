@@ -9,12 +9,12 @@
 
 use ratatui::{
     layout::{Alignment, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
-use crate::bin::tui::app::{Message, MessageRole, AppState};
+use crate::state::{AppState, Message, MessageRole};
 
 /// State specific to the chat panel
 #[derive(Debug, Clone, Default)]
@@ -129,7 +129,7 @@ pub fn render_chat_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bin::tui::app::Session;
+    use crate::app::Session;
     use chrono::Utc;
 
     #[test]

@@ -11,6 +11,9 @@ mod swarm;
 
 pub use chat::{render_chat_panel, ChatPanelState};
 pub use cost::{render_cost_panel, CostPanelState};
-pub use logs::{render_logs_panel, LogLevel, LogsPanelState};
-pub use memory::{render_memory_panel, MemoryOpType, MemoryOperation, MemoryPanelState};
+pub use logs::{render_logs_panel, LogsPanelState};
+pub use memory::{render_memory_panel, MemoryPanelState};
 pub use swarm::{render_swarm_panel, SwarmPanelState};
+
+// Re-export types from state subsystems for convenience
+pub use crate::state::{LogLevel, MemoryOpType, MemoryOperation};

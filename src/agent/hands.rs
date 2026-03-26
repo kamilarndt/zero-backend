@@ -1,14 +1,15 @@
-use tokio_util::sync::CancellationToken;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{RwLock, Semaphore};
+use tokio_util::sync::CancellationToken;
 
-use super::workspace::HandWorkspace;
 use super::interruption::InterruptionHandler;
+use super::workspace::HandWorkspace;
 
 /// Represents the state of an active hand with its cancellation token,
 /// process group ID, and workspace path.
+#[derive(Clone)]
 pub struct HandState {
     /// Token for graceful cancellation of the hand's work
     pub token: CancellationToken,
@@ -150,6 +151,14 @@ impl HandsDispatcher {
         hands.contains_key(hand_id)
     }
 
+    /// List all active hands
+    ///
+    /// Returns a HashMap of hand_id to HandState for all currently active hands
+    pub async fn list_active_hands(&self) -> HashMap<String, HandState> {
+        let hands = self.active_hands.read().await;
+        hands.clone()
+    }
+
     /// Set the process group ID (pgid) for a specific hand
     pub async fn set_hand_pgid(&self, hand_id: &str, pgid: u32) -> Result<(), anyhow::Error> {
         let mut hands = self.active_hands.write().await;
@@ -162,7 +171,11 @@ impl HandsDispatcher {
     }
 
     /// Set the workspace path for a specific hand
-    pub async fn set_hand_workspace(&self, hand_id: &str, workspace_path: PathBuf) -> Result<(), anyhow::Error> {
+    pub async fn set_hand_workspace(
+        &self,
+        hand_id: &str,
+        workspace_path: PathBuf,
+    ) -> Result<(), anyhow::Error> {
         let mut hands = self.active_hands.write().await;
         if let Some(hand_state) = hands.get_mut(hand_id) {
             hand_state.workspace_path = Some(workspace_path);
@@ -257,7 +270,10 @@ mod tests {
 
         // Interrupt the hand using interrupt_hand_killed
         let result = dispatcher.interrupt_hand_killed("hand1").await;
-        assert!(result.is_ok(), "interrupt_hand_killed should handle non-existent pgid gracefully");
+        assert!(
+            result.is_ok(),
+            "interrupt_hand_killed should handle non-existent pgid gracefully"
+        );
 
         // Token should be cancelled
         assert!(token.is_cancelled());
@@ -269,7 +285,10 @@ mod tests {
 
         // Try to interrupt a non-existent hand
         let result = dispatcher.interrupt_hand_killed("nonexistent").await;
-        assert!(result.is_ok(), "interrupt_hand_killed should return Ok for non-existent hand");
+        assert!(
+            result.is_ok(),
+            "interrupt_hand_killed should return Ok for non-existent hand"
+        );
     }
 
     #[tokio::test]
@@ -297,7 +316,10 @@ mod tests {
 
         // Set workspace
         let workspace_path = std::path::PathBuf::from("/tmp/workspace");
-        dispatcher.set_hand_workspace("hand1", workspace_path.clone()).await.unwrap();
+        dispatcher
+            .set_hand_workspace("hand1", workspace_path.clone())
+            .await
+            .unwrap();
 
         // Verify workspace was set
         let hands = dispatcher.active_hands.read().await;

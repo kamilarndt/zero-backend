@@ -7,9 +7,10 @@
 //! - Module/source attribution
 //! - Rolling buffer (last 200 lines)
 
-use crate::bin::tui::app::AppState;
-use crate::bin::tui::state::subsystems::{LogLevel, LogLine};
+use crate::state::AppState;
+use crate::state::subsystems::{LogLevel, LogLine};
 use ratatui::{
+    style::Stylize,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
@@ -37,7 +38,6 @@ pub struct LogsPanelState {
 }
 
 /// Re-export LogLevel for external use
-pub use crate::bin::tui::state::subsystems::LogLevel;
 
 /// Render the logs panel
 pub fn render_logs_panel(frame: &mut Frame, area: Rect, _app: &AppState, state: &LogsPanelState) {
