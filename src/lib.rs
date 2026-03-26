@@ -73,6 +73,14 @@ pub mod tools;
 pub(crate) mod tunnel;
 pub(crate) mod util;
 
+// TUI module for testing - exposes binary modules to integration tests
+#[cfg(feature = "tui")]
+pub mod tui {
+    pub use crate::bin::tui::app::*;
+    pub use crate::bin::tui::events::*;
+    pub use crate::bin::tui::ui;
+}
+
 pub use config::Config;
 
 /// Service management subcommands
