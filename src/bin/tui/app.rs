@@ -32,6 +32,25 @@ pub struct AppState {
 
     /// Application quit flag
     pub should_quit: bool,
+
+    /// Panel visibility states
+    pub panel_visibility: PanelVisibility,
+}
+
+/// Panel visibility configuration
+#[derive(Debug, Clone, Default)]
+pub struct PanelVisibility {
+    /// Show swarm panel
+    pub swarm: bool,
+
+    /// Show cost panel
+    pub cost: bool,
+
+    /// Show memory panel
+    pub memory: bool,
+
+    /// Show logs panel
+    pub logs: bool,
 }
 
 impl Default for AppState {
@@ -54,6 +73,7 @@ impl Default for AppState {
             router_status: RouterStatus::default(),
             chat_scroll: 0,
             should_quit: false,
+            panel_visibility: PanelVisibility::default(),
         }
     }
 }

@@ -10,16 +10,13 @@ mod app;
 mod events;
 mod sessions;
 mod ui;
+mod state;
 
 #[cfg(test)]
 mod e2e_tests;
 
 use agents::ZeroClawClient;
-use app::{
-    AgentState, AppState, BudgetStatus, ChatMessage, LogEntry, MemoryOp, MemoryOperation,
-    MessageRole, ModelStats,
-};
-use chrono::Utc;
+use state::*;
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -138,12 +135,11 @@ async fn async_main() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     // Initialize app state
-    let mut app = AppState::default();
-
-    // Initialize mock data if in demo mode
-    if demo_mode {
-        initialize_mock_data(&mut app);
-    }
+    let mut app = if demo_mode {
+        AppState::new_demo()
+    } else {
+        AppState::default()
+    };
 
     // ZeroClaw HTTP client
     let zeroclaw_client = if demo_mode {
@@ -177,7 +173,7 @@ async fn async_main() -> anyhow::Result<()> {
         if crossterm::event::poll(tick_rate)? {
             if let Event::Key(key) = crossterm::event::read()? {
                 // Handle help toggle
-                if key.code == KeyCode::Char('?') && app.input_mode == app::InputMode::Normal {
+                if key.code == KeyCode::Char('?') && app.input_mode == InputMode::Normal {
                     help_visible = !help_visible;
                     continue;
                 }
@@ -194,7 +190,7 @@ async fn async_main() -> anyhow::Result<()> {
                 if let Some(app_event) = map_key_event(key, &app.input_mode) {
                     // Special handling for command execution
                     if app_event == AppEvent::ToggleInputMode
-                        && app.input_mode == app::InputMode::Command
+                        && app.input_mode == InputMode::Command
                     {
                         // Exiting command mode - execute command
                         if !app.input_buffer.is_empty() {
@@ -260,8 +256,8 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
 
         AppEvent::ToggleInputMode => {
             app.input_mode = match app.input_mode {
-                app::InputMode::Normal => app::InputMode::Insert,
-                app::InputMode::Insert | app::InputMode::Command => app::InputMode::Normal,
+                InputMode::Normal => InputMode::Insert,
+                InputMode::Insert | InputMode::Command => InputMode::Normal,
             };
         }
 
@@ -270,20 +266,24 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
                 let message = app.input_buffer.clone();
                 app.add_user_message(message.clone());
 
+                // Get the selected agent for routing
+                let selected_agent = app.selected_agent();
+
                 // In demo mode, echo a fake response
                 if client.is_none() {
                     app.add_assistant_message(
-                        format!("[Demo Mode] Received: {}", message),
-                        Some("demo-model".to_string()),
+                        format!("[Demo Mode] Received via '{}': {}", selected_agent, message),
+                        Some(format!("demo-{}", selected_agent)),
                     );
                 } else if let Some(client) = client {
-                    // Send to ZeroClaw API
+                    // Send to ZeroClaw API with selected agent hint
                     let session_id = app
                         .current_session()
                         .map(|s| s.id.clone())
                         .unwrap_or_default();
+                    let agent_hint = app.selected_agent();
 
-                    match client.send_message(&session_id, &message).await {
+                    match client.send_message_with_agent(&session_id, &message, Some(&agent_hint)).await {
                         Ok(response) => {
                             app.add_assistant_message(response, None);
                         }
@@ -310,12 +310,13 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
                 "[Info] Spawning new subagent...".to_string(),
                 Some("system".to_string()),
             );
-            // Mock spawning
-            app.swarm_panel.agents.push(app::AgentStatus {
-                role: "New Agent".to_string(),
-                state: AgentState::Running,
-                current_task: Some("Initializing...".to_string()),
+            // Mock spawning - add a new active agent
+            app.active_agents.push(AgentStatus {
+                id: uuid::Uuid::new_v4().to_string(),
+                name: "New Agent".to_string(),
+                model: "gpt-4-turbo".to_string(),
                 progress: 0,
+                status: AgentState::Running,
             });
         }
 
@@ -327,22 +328,6 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
             app.scroll_down();
         }
 
-        AppEvent::ToggleSwarm => {
-            app.toggle_swarm();
-        }
-
-        AppEvent::ToggleCost => {
-            app.toggle_cost();
-        }
-
-        AppEvent::ToggleMemory => {
-            app.toggle_memory();
-        }
-
-        AppEvent::ToggleLogs => {
-            app.toggle_logs();
-        }
-
         AppEvent::RunTest => {
             let output = run_tui_diagnostic();
             app.add_assistant_message(output, Some("system".to_string()));
@@ -351,130 +336,61 @@ async fn handle_event(event: AppEvent, app: &mut AppState, client: &Option<ZeroC
         AppEvent::Help => {
             // Handled in main loop
         }
+
+        AppEvent::ToggleSwarmPanel => {
+            app.toggle_panel(PanelType::Swarm);
+        }
+
+        AppEvent::ToggleCostPanel => {
+            app.toggle_panel(PanelType::Cost);
+        }
+
+        AppEvent::ToggleMemoryPanel => {
+            app.toggle_panel(PanelType::Memory);
+        }
+
+        AppEvent::ToggleLogsPanel => {
+            app.toggle_panel(PanelType::Logs);
+        }
+
+        AppEvent::NextAgent => {
+            app.next_agent();
+        }
+
+        AppEvent::PrevAgent => {
+            app.prev_agent();
+        }
+
+        AppEvent::SelectAgent(index) => {
+            app.set_selected_agent(index);
+        }
     }
-}
-
-/// Initialize some mock data for the TUI dashboard
-fn initialize_mock_data(app: &mut AppState) {
-    // Swarm
-    app.swarm_panel.agents = vec![
-        app::AgentStatus {
-            role: "Researcher".to_string(),
-            state: AgentState::Running,
-            current_task: Some("Searching for EPIC specs".to_string()),
-            progress: 45,
-        },
-        app::AgentStatus {
-            role: "Coder".to_string(),
-            state: AgentState::Idle,
-            current_task: None,
-            progress: 100,
-        },
-    ];
-
-    // Cost
-    app.cost_panel.session_cost = 0.042;
-    app.cost_panel.daily_cost = 1.25;
-    app.cost_panel.monthly_cost = 15.80;
-    app.cost_panel.model_usage = vec![
-        ModelStats {
-            model: "gpt-4-turbo".to_string(),
-            tokens_used: 15400,
-            cost_usd: 0.15,
-            percentage: 65.0,
-        },
-        ModelStats {
-            model: "claude-3-opus".to_string(),
-            tokens_used: 5200,
-            cost_usd: 0.08,
-            percentage: 35.0,
-        },
-    ];
-
-    // Memory
-    app.memory_panel.backend_name = "Qdrant (Local)".to_string();
-    app.memory_panel.vector_count = 12450;
-    app.memory_panel.cache_hit_rate = 88.5;
-    app.memory_panel.recent_operations = vec![
-        MemoryOperation {
-            operation: MemoryOp::Recall {
-                query: "tui".to_string(),
-                results: 5,
-            },
-            key: "query:tui".to_string(),
-            category: "search".to_string(),
-            timestamp: Utc::now(),
-            duration_ms: 45,
-        },
-        MemoryOperation {
-            operation: MemoryOp::Store {
-                key: "session_123".to_string(),
-                size_bytes: 1024,
-            },
-            key: "session_123".to_string(),
-            category: "chat".to_string(),
-            timestamp: Utc::now(),
-            duration_ms: 12,
-        },
-    ];
-
-    // Logs
-    app.log_panel.logs = vec![
-        LogEntry {
-            timestamp: Utc::now(),
-            level: "INFO".to_string(),
-            target: "zero::tui".to_string(),
-            message: "TUI Dashboard initialized".to_string(),
-        },
-        LogEntry {
-            timestamp: Utc::now(),
-            level: "DEBUG".to_string(),
-            target: "zero::swarm".to_string(),
-            message: "Scanning for active agents...".to_string(),
-        },
-    ];
 }
 
 /// Update mock data to show activity
 fn update_mock_data(app: &mut AppState) {
-    // Progress agents
-    for agent in &mut app.swarm_panel.agents {
-        if agent.state == AgentState::Running {
-            agent.progress = (agent.progress + 5) % 101;
-            if agent.progress == 0 {
-                agent.state = AgentState::Done;
+    // Update swarm agents
+    {
+        let mut swarm = app.swarm_panel.lock();
+        for agent in &mut swarm.agents {
+            if agent.status == crate::state::subsystems::AgentStatus::Running {
+                agent.progress = agent.progress.saturating_add(5);
+                if agent.progress >= 100 {
+                    agent.progress = 100;
+                    agent.status = crate::state::subsystems::AgentStatus::Done;
+                }
             }
-        } else if agent.state == AgentState::Done {
-            agent.state = AgentState::Idle;
-        } else if agent.state == AgentState::Idle {
-            agent.state = AgentState::Running;
-            agent.progress = 0;
         }
+        swarm.tasks_completed = swarm.tasks_completed.saturating_add(1);
     }
 
-    // Add a mock log
-    let levels = ["INFO", "DEBUG", "WARN"];
-    let targets = ["zero::gateway", "zero::memory", "zero::cost"];
-    let messages = [
-        "Heartbeat received",
-        "Cache invalidated",
-        "Usage threshold check",
-    ];
-
-    let now = Utc::now();
-    app.log_panel.logs.push(LogEntry {
-        timestamp: now,
-        level: levels[now.timestamp() as usize % 3].to_string(),
-        target: targets[now.timestamp() as usize % 3].to_string(),
-        message: messages[now.timestamp() as usize % 3].to_string(),
-    });
-
-    if app.log_panel.logs.len() > 10 {
-        app.log_panel.logs.remove(0);
+    // Update cost panel
+    {
+        let mut cost = app.cost_panel.lock();
+        cost.session_cost += 0.01;
+        cost.daily_cost += 0.01;
+        cost.monthly_cost += 0.01;
     }
-
-    // Increment cost slightly
-    app.cost_panel.session_cost += 0.0001;
 }
 
 /// Run TUI diagnostic test
@@ -532,7 +448,7 @@ fn run_tui_diagnostic() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use app::InputMode;
+    use InputMode;
 
     #[test]
     fn test_event_handling_quit() {
@@ -561,20 +477,6 @@ mod tests {
             assert_eq!(app.input_mode, InputMode::Insert);
             handle_event(AppEvent::ToggleInputMode, &mut app, &None).await;
             assert_eq!(app.input_mode, InputMode::Normal);
-        });
-    }
-
-    #[test]
-    fn test_event_handling_panel_toggles() {
-        let mut app = AppState::default();
-        tokio::runtime::Runtime::new().unwrap().block_on(async {
-            assert!(app.show_swarm);
-            handle_event(AppEvent::ToggleSwarm, &mut app, &None).await;
-            assert!(!app.show_swarm);
-
-            assert!(!app.show_logs);
-            handle_event(AppEvent::ToggleLogs, &mut app, &None).await;
-            assert!(app.show_logs);
         });
     }
 }

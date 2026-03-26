@@ -3,7 +3,7 @@
 //! This module provides keyboard event mapping and handling for the terminal UI.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use super::app::InputMode;
+use super::state::InputMode;
 
 /// Application events
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +49,27 @@ pub enum AppEvent {
 
     /// Run diagnostics test
     RunTest,
+
+    /// Toggle swarm panel
+    ToggleSwarmPanel,
+
+    /// Toggle cost panel
+    ToggleCostPanel,
+
+    /// Toggle memory panel
+    ToggleMemoryPanel,
+
+    /// Toggle logs panel
+    ToggleLogsPanel,
+
+    /// Cycle to next agent
+    NextAgent,
+
+    /// Cycle to previous agent
+    PrevAgent,
+
+    /// Select agent by index
+    SelectAgent(usize),
 }
 
 /// Map keyboard events to application events
@@ -90,6 +111,16 @@ fn map_normal_mode(key: KeyEvent) -> Option<AppEvent> {
         // Arrow keys - Scroll
         (KeyCode::Up, mods) if mods.is_empty() => Some(AppEvent::ScrollUp),
         (KeyCode::Down, mods) if mods.is_empty() => Some(AppEvent::ScrollDown),
+
+        // Panel toggles
+        (KeyCode::Char('s'), mods) if mods.is_empty() => Some(AppEvent::ToggleSwarmPanel),
+        (KeyCode::Char('c'), mods) if mods.is_empty() => Some(AppEvent::ToggleCostPanel),
+        (KeyCode::Char('m'), mods) if mods.is_empty() => Some(AppEvent::ToggleMemoryPanel),
+        (KeyCode::Char('l'), mods) if mods.is_empty() => Some(AppEvent::ToggleLogsPanel),
+
+        // Agent selection (a cycles forward, Shift+A cycles backward)
+        (KeyCode::Char('a'), KeyModifiers::SHIFT) => Some(AppEvent::PrevAgent),
+        (KeyCode::Char('a'), mods) if mods.is_empty() => Some(AppEvent::NextAgent),
 
         _ => None,
     }
@@ -150,6 +181,16 @@ Navigation (Normal Mode):
   Ctrl+A    Spawn new subagent
   ?         Show this help
   Up/Down   Scroll chat
+
+Agent Selection:
+  a         Cycle to next agent
+  Shift+A   Cycle to previous agent
+
+Panel Toggles:
+  s         Toggle Agent Swarm panel
+  c         Toggle Cost Tracker panel
+  m         Toggle Memory Inspector panel
+  l         Toggle System Logs panel
 
 Insert Mode (Typing):
   Esc       Back to normal mode

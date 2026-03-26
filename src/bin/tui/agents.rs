@@ -30,10 +30,17 @@ impl ZeroClawClient {
 
     /// Send a message to the current session
     pub async fn send_message(&self, session_id: &str, message: &str) -> Result<String> {
+        self.send_message_with_agent(session_id, message, None).await
+    }
+
+    /// Send a message with an optional agent routing hint
+    pub async fn send_message_with_agent(&self, session_id: &str, message: &str, agent_hint: Option<&str>) -> Result<String> {
         #[derive(serde::Serialize)]
         struct Request {
             session_id: String,
             content: String,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            agent_hint: Option<String>,
         }
 
         let resp = self
@@ -42,6 +49,7 @@ impl ZeroClawClient {
             .json(&Request {
                 session_id: session_id.to_string(),
                 content: message.to_string(),
+                agent_hint: agent_hint.map(|s| s.to_string()),
             })
             .send()
             .await?;
