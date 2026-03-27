@@ -164,8 +164,17 @@ async fn async_main() -> anyhow::Result<()> {
         temp_cache.clone(),
         temp_shutdown.subscribe(),
     ));
-    let _cost_handle = tokio::spawn(subsystems::cost_update_task(channels.cost_tx.clone()));
-    let _memory_handle = tokio::spawn(subsystems::memory_update_task(channels.memory_tx.clone()));
+    let _cost_handle = tokio::spawn(subsystems::cost_update_task(
+        channels.cost_tx.clone(),
+        temp_cache.clone(),
+        temp_shutdown.subscribe(),
+    ));
+
+    let _memory_handle = tokio::spawn(subsystems::memory_update_task(
+        channels.memory_tx.clone(),
+        temp_cache.clone(),
+        temp_shutdown.subscribe(),
+    ));
     let _logs_handle = tokio::spawn(subsystems::logs_update_task(
         channels.logs_tx.clone(),
         temp_cache.clone(),
