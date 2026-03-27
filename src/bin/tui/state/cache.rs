@@ -106,17 +106,16 @@ impl RequestCache {
         }
     }
 
-    /// Mark request as failed (clear pending flag)
+    /// Mark request as failed (remove cache entry)
     ///
-    /// Call this if API request fails so other tasks can retry
+    /// Call this if API request fails so other tasks can retry.
+    /// Removes the entry completely to allow fresh fetch.
     ///
     /// # Arguments
     /// - `key`: Cache key to mark as failed
     pub fn mark_failed(&self, key: &str) {
         let mut entries = self.entries.write().unwrap();
-        if let Some(entry) = entries.get_mut(key) {
-            entry.pending = false;
-        }
+        entries.remove(key);
     }
 }
 
