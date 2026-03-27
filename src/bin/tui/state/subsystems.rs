@@ -474,43 +474,72 @@ pub async fn memory_update_task(
 /// Subscribes to tracing events and filters for TUI consumption.
 pub async fn logs_update_task(
     channels: tokio::sync::watch::Sender<LogsSnapshot>,
+    cache: Arc<RequestCache>,
+    mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
-    let client = Client::new();
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+    let client = get_http_client();
+    let mut interval = tokio::time::interval(Duration::from_secs(5));
+    interval.tick().await; // Skip first immediate tick
+
     loop {
-        interval.tick().await;
+        tokio::select! {
+            _ = interval.tick() => {
+                const CACHE_KEY: &str = "logs";
 
-        // Poll /api/logs/status
-        match client
-            .get("http://127.0.0.1:42617/api/logs/status")
-            .send()
-            .await
-        {
-            Ok(response) => {
-                if response.status().is_success() {
-                    if let Ok(logs_response) = response.json::<serde_json::Value>().await {
-                        let log_lines = logs_response
-                            .get("log_lines")
-                            .and_then(|v| v.as_array())
-                            .map(|arr| {
-                                arr.iter()
-                                    .filter_map(|line| serde_json::from_value(line.clone()).ok())
-                                    .collect()
-                            })
-                            .unwrap_or_else(Vec::new);
-
-                        let snapshot = LogsSnapshot {
-                            log_lines,
-                            log_level: "INFO".to_string(),
-                            timestamp: chrono::Utc::now(),
-                        };
-
+                // Check cache for deduplication
+                if let Some(cached_json) = cache.try_get_or_mark_pending(CACHE_KEY) {
+                    if let Ok(snapshot) = serde_json::from_value(cached_json) {
                         let _ = channels.send(snapshot);
+                        continue;
+                    }
+                }
+
+                // Fetch from API
+                match client
+                    .get("http://127.0.0.1:42617/api/logs/status")
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            if let Ok(logs_response) = response.json::<serde_json::Value>().await {
+                                let log_lines = logs_response
+                                    .get("log_lines")
+                                    .and_then(|v| v.as_array())
+                                    .map(|arr| {
+                                        arr.iter()
+                                            .filter_map(|line| serde_json::from_value(line.clone()).ok())
+                                            .collect()
+                                    })
+                                    .unwrap_or_else(Vec::new);
+
+                                let snapshot = LogsSnapshot {
+                                    log_lines,
+                                    log_level: "INFO".to_string(),
+                                    timestamp: chrono::Utc::now(),
+                                };
+
+                                if let Ok(json) = serde_json::to_value(&snapshot) {
+                                    cache.put_and_ready(CACHE_KEY, json);
+                                }
+
+                                let _ = channels.send(snapshot);
+                            } else {
+                                cache.mark_failed(CACHE_KEY);
+                            }
+                        } else {
+                            cache.mark_failed(CACHE_KEY);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to fetch logs state: {}", e);
+                        cache.mark_failed(CACHE_KEY);
                     }
                 }
             }
-            Err(e) => {
-                tracing::warn!("Failed to fetch logs state: {}", e);
+            _ = shutdown_rx.recv() => {
+                tracing::info!("Logs update task shutting down");
+                return Ok(());
             }
         }
     }

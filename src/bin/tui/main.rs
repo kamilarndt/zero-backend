@@ -157,16 +157,20 @@ async fn async_main() -> anyhow::Result<()> {
     // Temporary: Create dummy instances for swarm_update_task
     // Task 3.1 will replace this with proper initialization
     let temp_cache = Arc::new(state::cache::RequestCache::new(Duration::from_secs(5)));
-    let (_, temp_shutdown) = tokio::sync::broadcast::channel::<()>(1);
+    let (temp_shutdown, _) = tokio::sync::broadcast::channel::<()>(1);
 
     let _swarm_handle = tokio::spawn(subsystems::swarm_update_task(
         channels.swarm_tx.clone(),
-        temp_cache,
-        temp_shutdown,
+        temp_cache.clone(),
+        temp_shutdown.subscribe(),
     ));
     let _cost_handle = tokio::spawn(subsystems::cost_update_task(channels.cost_tx.clone()));
     let _memory_handle = tokio::spawn(subsystems::memory_update_task(channels.memory_tx.clone()));
-    let _logs_handle = tokio::spawn(subsystems::logs_update_task(channels.logs_tx.clone()));
+    let _logs_handle = tokio::spawn(subsystems::logs_update_task(
+        channels.logs_tx.clone(),
+        temp_cache.clone(),
+        temp_shutdown.subscribe(),
+    ));
 
     // Subscribe to updates
     let mut swarm_rx = channels.subscribe_swarm();
