@@ -5,6 +5,7 @@
 //! non-blocking updates with automatic receiver synchronization.
 
 pub mod channels;
+pub mod dirty;
 pub mod subsystems;
 
 pub use channels::{TuiStateChannels, StateSnapshot};
