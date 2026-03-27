@@ -8,6 +8,10 @@ use chrono::{DateTime, Utc};
 use ratatui::style::Color;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
+use crate::state::http::get_http_client;
+use crate::state::cache::RequestCache;
 
 /// Agent swarm state snapshot
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -264,34 +268,64 @@ pub struct LogLine {
 /// and broadcasting updates to TUI panels.
 pub async fn swarm_update_task(
     channels: tokio::sync::watch::Sender<SwarmSnapshot>,
+    cache: Arc<RequestCache>,
+    mut shutdown_rx: tokio::sync::broadcast::Receiver<()>,
 ) -> anyhow::Result<()> {
-    let client = reqwest::Client::new();
-    let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+    let client = get_http_client();
+    let mut interval = tokio::time::interval(Duration::from_secs(5));
+    interval.tick().await; // Skip first immediate tick
 
     loop {
-        interval.tick().await;
+        tokio::select! {
+            _ = interval.tick() => {
+                const CACHE_KEY: &str = "swarm";
 
-        // Poll /api/agents/active
-        match client
-            .get("http://127.0.0.1:42617/api/agents/active")
-            .send()
-            .await
-        {
-            Ok(response) => {
-                if response.status().is_success() {
-                    if let Ok(agents) = response.json::<Vec<AgentInfo>>().await {
-                        let snapshot = SwarmSnapshot {
-                            active_agents: agents,
-                            tasks_completed: 0, // TODO: get from A2A stats
-                            throughput: 0.0,    // TODO: calculate
-                            timestamp: chrono::Utc::now(),
-                        };
+                // Check cache for deduplication
+                if let Some(cached_json) = cache.try_get_or_mark_pending(CACHE_KEY) {
+                    if let Ok(snapshot) = serde_json::from_value(cached_json) {
                         let _ = channels.send(snapshot);
+                        continue;
+                    }
+                }
+
+                // Fetch from API
+                match client
+                    .get("http://127.0.0.1:42617/api/agents/active")
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            if let Ok(agents) = response.json::<Vec<AgentInfo>>().await {
+                                let snapshot = SwarmSnapshot {
+                                    active_agents: agents,
+                                    tasks_completed: 0,
+                                    throughput: 0.0,
+                                    timestamp: chrono::Utc::now(),
+                                };
+
+                                if let Ok(json) = serde_json::to_value(&snapshot) {
+                                    cache.put_and_ready(CACHE_KEY, json);
+                                }
+
+                                let _ = channels.send(snapshot);
+                            } else {
+                                cache.mark_failed(CACHE_KEY);
+                            }
+                        } else {
+                            tracing::debug!("API returned {}", response.status());
+                            cache.mark_failed(CACHE_KEY);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to fetch swarm state: {}", e);
+                        cache.mark_failed(CACHE_KEY);
                     }
                 }
             }
-            Err(e) => {
-                tracing::warn!("Failed to fetch swarm state: {}", e);
+            _ = shutdown_rx.recv() => {
+                tracing::info!("Swarm update task shutting down");
+                return Ok(());
             }
         }
     }
