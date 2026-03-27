@@ -4,6 +4,7 @@
 //! to TUI panels without blocking the main agent loop. Uses tokio::sync::watch for
 //! non-blocking updates with automatic receiver synchronization.
 
+pub mod cache;
 pub mod channels;
 pub mod dirty;
 pub mod http;
