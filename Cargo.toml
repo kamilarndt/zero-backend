@@ -105,6 +105,9 @@ parking_lot = "0.12"
 # Async traits
 async-trait = "0.1"
 
+# Singleton pattern for lazy initialization
+once_cell = "1.19"
+
 # Global registry for tool registration
 inventory = "0.3"
 
