@@ -8,6 +8,7 @@ pub mod cache;
 pub mod channels;
 pub mod dirty;
 pub mod http;
+pub mod shutdown;
 pub mod subsystems;
 
 pub use channels::{TuiStateChannels, StateSnapshot};
