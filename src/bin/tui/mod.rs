@@ -5,11 +5,14 @@
 
 pub mod agents;
 pub mod app;
+pub mod benchmarks;
+pub mod comprehensive_tests;
 pub mod events;
 pub mod panels;
 pub mod sessions;
 pub mod state;
 pub mod ui;
+pub mod ui_conditional;
 
 pub use app::{AppState, InputMode, Message, MessageRole, Session};
 pub use agents::{ZeroClawClient, format_agent_status, format_quota_percent};

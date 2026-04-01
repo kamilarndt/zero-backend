@@ -6,7 +6,9 @@
 
 pub mod cache;
 pub mod channels;
+pub mod connection_pool;
 pub mod dirty;
+pub mod dirty_manager;
 pub mod http;
 pub mod shutdown;
 pub mod subsystems;
