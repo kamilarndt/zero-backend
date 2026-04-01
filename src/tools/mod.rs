@@ -20,6 +20,7 @@ pub mod browser_open;
 pub mod cli_discovery;
 pub mod composio;
 pub mod content_search;
+pub mod emit_event;
 pub mod cron_add;
 pub mod cron_list;
 pub mod cron_remove;
@@ -47,6 +48,7 @@ pub mod model_routing_config;
 pub mod pdf_read;
 pub mod proxy_config;
 pub mod task_plan;
+pub mod update_dashboard_widget;
 pub mod pushover;
 pub mod schedule;
 pub mod schema;
@@ -65,6 +67,7 @@ pub mod macros;
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
 pub use composio::ComposioTool;
+pub use emit_event::EmitEventTool;
 pub use content_search::ContentSearchTool;
 pub use cron_add::CronAddTool;
 pub use cron_list::CronListTool;
@@ -94,6 +97,7 @@ pub use pdf_read::PdfReadTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
 pub use task_plan::TaskPlanTool;
+pub use update_dashboard_widget::UpdateDashboardWidgetTool;
 pub use schedule::ScheduleTool;
 #[allow(unused_imports)]
 pub use schema::{CleaningStrategy, SchemaCleanr};
@@ -303,6 +307,15 @@ pub fn all_tools_with_runtime(
             http_config.timeout_secs,
         )));
     }
+
+    // Dashboard widget tool (always available when gateway is running)
+    tool_arcs.push(Arc::new(UpdateDashboardWidgetTool::new(
+        security.clone(),
+        root_config.gateway.port,
+    )));
+
+    // Event emission tool for agents to push updates to dashboard
+    tool_arcs.push(Arc::new(EmitEventTool));
 
     if web_fetch_config.enabled {
         tool_arcs.push(Arc::new(WebFetchTool::new(

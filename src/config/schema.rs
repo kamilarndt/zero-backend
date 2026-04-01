@@ -213,6 +213,10 @@ pub struct Config {
     #[serde(default)]
     pub cost: CostConfig,
 
+    /// Quota-aware routing configuration (`[quota_routing]`, `[quota_tracking]`, `[external_tools]`).
+    #[serde(default)]
+    pub quota_routing: QuotaRoutingSchema,
+
     /// Peripheral board configuration for hardware integration (`[peripherals]`).
     #[serde(default)]
     pub peripherals: PeripheralsConfig,
@@ -3038,6 +3042,7 @@ impl Default for Config {
             proxy: ProxyConfig::default(),
             identity: IdentityConfig::default(),
             cost: CostConfig::default(),
+            quota_routing: QuotaRoutingSchema::default(),
             peripherals: PeripheralsConfig::default(),
             agents: HashMap::new(),
             hooks: HooksConfig::default(),
@@ -4533,6 +4538,7 @@ default_temperature = 0.7
             model_routes: Vec::new(),
             embedding_routes: Vec::new(),
             query_classification: QueryClassificationConfig::default(),
+            quota_routing: QuotaRoutingSchema::default(),
             heartbeat: HeartbeatConfig {
                 enabled: true,
                 interval_minutes: 15,
@@ -4752,6 +4758,7 @@ tool_dispatcher = "xml"
             model_routes: Vec::new(),
             embedding_routes: Vec::new(),
             query_classification: QueryClassificationConfig::default(),
+            quota_routing: QuotaRoutingSchema::default(),
             heartbeat: HeartbeatConfig::default(),
             cron: CronConfig::default(),
             channels_config: ChannelsConfig::default(),
@@ -7076,5 +7083,346 @@ require_otp_to_resume = true
             .validate()
             .expect_err("expected ttl validation failure");
         assert!(err.to_string().contains("token_ttl_secs"));
+    }
+
+    #[test]
+    async fn quota_routing_config_defaults() {
+        let parsed: Config = toml::from_str(
+            r#"
+default_provider = "openrouter"
+default_model = "anthropic/claude-sonnet-4.6"
+default_temperature = 0.7
+"#,
+        )
+        .unwrap();
+
+        assert!(!parsed.quota_routing.enabled);
+        assert_eq!(parsed.quota_routing.quota_threshold, 50.0);
+        assert_eq!(parsed.quota_routing.strategy, "balanced");
+    }
+
+    #[test]
+    async fn quota_routing_config_full() {
+        let parsed: Config = toml::from_str(
+            r#"
+default_provider = "openrouter"
+default_model = "anthropic/claude-sonnet-4.6"
+
+[quota_routing]
+enabled = true
+quota_threshold = 75.0
+strategy = "conservative"
+
+[quota_routing.model_tiers]
+primary = [
+    { hint = "coder", model = "glm-4.6", provider = "glm" }
+]
+secondary = [
+    { hint = "coder", model = "glm-4.7", provider = "glm" }
+]
+fallback = []
+emergency = []
+"#,
+        )
+        .unwrap();
+
+        assert!(parsed.quota_routing.enabled);
+        assert_eq!(parsed.quota_routing.quota_threshold, 75.0);
+        assert_eq!(parsed.quota_routing.strategy, "conservative");
+        assert_eq!(parsed.quota_routing.model_tiers.primary.len(), 1);
+        assert_eq!(parsed.quota_routing.model_tiers.primary[0].hint, "coder");
+    }
+
+    #[test]
+    async fn quota_tracking_config_defaults() {
+        let parsed: Config = toml::from_str(
+            r#"
+default_provider = "openrouter"
+default_model = "anthropic/claude-sonnet-4.6"
+"#,
+        )
+        .unwrap();
+
+        assert!(!parsed.quota_routing.tracking.enabled);
+        assert_eq!(parsed.quota_routing.tracking.max_requests_per_window, 1000);
+        assert_eq!(parsed.quota_routing.tracking.quota_window_hours, 5);
+    }
+
+    #[test]
+    async fn external_tools_config_defaults() {
+        let parsed: Config = toml::from_str(
+            r#"
+default_provider = "openrouter"
+default_model = "anthropic/claude-sonnet-4.6"
+"#,
+        )
+        .unwrap();
+
+        assert!(!parsed.quota_routing.external_tools.enabled);
+        assert!(parsed.quota_routing.external_tools.monitored_tools.contains(&"cursor".to_string()));
+        assert_eq!(parsed.quota_routing.external_tools.alerts.alert_threshold_percent, 30);
+    }
+}
+
+// ── Quota-Aware Routing Configuration ────────────────────────────────
+
+/// Quota-aware routing configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct QuotaRoutingSchema {
+    /// Main quota routing configuration
+    #[serde(default)]
+    pub enabled: bool,
+    /// Quota threshold percentage (0-100)
+    #[serde(default = "default_quota_threshold")]
+    pub quota_threshold: f64,
+    /// How often to check quota usage (seconds)
+    #[serde(default = "default_check_interval")]
+    pub check_interval_secs: u64,
+    /// Strategy: conservative, balanced, aggressive
+    #[serde(default = "default_quota_strategy")]
+    pub strategy: String,
+    /// Quota source: "api" or "local"
+    #[serde(default = "default_quota_source")]
+    pub quota_source: String,
+    /// Model tiers for each quota level
+    #[serde(default)]
+    pub model_tiers: QuotaModelTiers,
+    /// Local quota tracking configuration
+    #[serde(default)]
+    pub tracking: QuotaTrackingSchema,
+    /// External tools monitoring configuration
+    #[serde(default)]
+    pub external_tools: ExternalToolsSchema,
+}
+
+/// Model tiers configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct QuotaModelTiers {
+    /// Primary models (0-49% quota)
+    #[serde(default)]
+    pub primary: Vec<TierModelSchema>,
+    /// Secondary models (50-74% quota)
+    #[serde(default)]
+    pub secondary: Vec<TierModelSchema>,
+    /// Fallback models (75-89% quota)
+    #[serde(default)]
+    pub fallback: Vec<TierModelSchema>,
+    /// Emergency models (90-100% quota)
+    #[serde(default)]
+    pub emergency: Vec<TierModelSchema>,
+}
+
+/// Model in a tier
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TierModelSchema {
+    /// Task hint (e.g., "coder", "reasoning")
+    pub hint: String,
+    /// Model name
+    pub model: String,
+    /// Provider name
+    pub provider: String,
+}
+
+/// Local quota tracking configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct QuotaTrackingSchema {
+    /// Enable local quota tracking
+    #[serde(default)]
+    pub enabled: bool,
+    /// Track usage per 5-hour window (Z.AI quota period)
+    #[serde(default = "default_quota_window")]
+    pub quota_window_hours: u64,
+    /// Maximum requests per 5-hour window
+    #[serde(default = "default_max_requests")]
+    pub max_requests_per_window: u64,
+    /// Maximum tokens per 5-hour window
+    #[serde(default = "default_max_tokens")]
+    pub max_tokens_per_window: u64,
+    /// Storage path for usage data
+    #[serde(default = "default_quota_storage_path")]
+    pub storage_path: String,
+    /// Model weights for quota calculation
+    #[serde(default)]
+    pub model_weights: std::collections::HashMap<String, f64>,
+}
+
+/// External tools monitoring configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ExternalToolsSchema {
+    /// Enable external tool monitoring
+    #[serde(default)]
+    pub enabled: bool,
+    /// List of tools to monitor
+    #[serde(default)]
+    pub monitored_tools: Vec<String>,
+    /// Tool-specific configurations (flattened TOML structure)
+    #[serde(default)]
+    pub cursor: Option<ExternalToolConfig>,
+    #[serde(default)]
+    pub cline: Option<ExternalToolConfig>,
+    #[serde(default)]
+    pub continue_tool: Option<ExternalToolConfig>,
+    #[serde(default)]
+    pub codeium: Option<ExternalToolConfig>,
+    #[serde(default)]
+    pub copilot: Option<ExternalToolConfig>,
+    /// Alert configuration
+    #[serde(default)]
+    pub alerts: ExternalToolsAlertsSchema,
+}
+
+/// Configuration for a specific external tool
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ExternalToolConfig {
+    /// Enable monitoring for this tool
+    #[serde(default)]
+    pub enabled: bool,
+    /// Models this tool uses
+    #[serde(default)]
+    pub models: Vec<String>,
+    /// Estimated hourly requests
+    #[serde(default)]
+    pub estimated_hourly_requests: u64,
+    /// Priority (low, medium, high)
+    #[serde(default = "default_tool_priority")]
+    pub priority: String,
+}
+
+/// External tools alert configuration
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ExternalToolsAlertsSchema {
+    /// Enable alerts
+    #[serde(default)]
+    pub enabled: bool,
+    /// Alert threshold percentage
+    #[serde(default = "default_alert_threshold")]
+    pub alert_threshold_percent: u8,
+    /// Auto-adjust quota for external tools
+    #[serde(default)]
+    pub auto_adjust_quota: bool,
+    /// Reserved quota percentage
+    #[serde(default = "default_reserved_quota")]
+    pub reserved_quota_percent: u8,
+}
+
+// Default functions for quota configuration
+
+fn default_quota_threshold() -> f64 {
+    50.0
+}
+
+fn default_check_interval() -> u64 {
+    60
+}
+
+fn default_quota_strategy() -> String {
+    "balanced".to_string()
+}
+
+fn default_quota_source() -> String {
+    "local".to_string()
+}
+
+fn default_quota_window() -> u64 {
+    5
+}
+
+fn default_max_requests() -> u64 {
+    1000
+}
+
+fn default_max_tokens() -> u64 {
+    10_000_000
+}
+
+fn default_quota_storage_path() -> String {
+    "~/.zeroclaw/quota_usage.json".to_string()
+}
+
+fn default_tool_priority() -> String {
+    "medium".to_string()
+}
+
+fn default_alert_threshold() -> u8 {
+    30
+}
+
+fn default_reserved_quota() -> u8 {
+    20
+}
+
+impl Default for QuotaRoutingSchema {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            quota_threshold: default_quota_threshold(),
+            check_interval_secs: default_check_interval(),
+            strategy: default_quota_strategy(),
+            quota_source: default_quota_source(),
+            model_tiers: QuotaModelTiers {
+                primary: vec![],
+                secondary: vec![],
+                fallback: vec![],
+                emergency: vec![],
+            },
+            tracking: QuotaTrackingSchema::default(),
+            external_tools: ExternalToolsSchema::default(),
+        }
+    }
+}
+
+impl Default for QuotaModelTiers {
+    fn default() -> Self {
+        Self {
+            primary: vec![],
+            secondary: vec![],
+            fallback: vec![],
+            emergency: vec![],
+        }
+    }
+}
+
+impl Default for QuotaTrackingSchema {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            quota_window_hours: default_quota_window(),
+            max_requests_per_window: default_max_requests(),
+            max_tokens_per_window: default_max_tokens(),
+            storage_path: default_quota_storage_path(),
+            model_weights: std::collections::HashMap::new(),
+        }
+    }
+}
+
+impl Default for ExternalToolsSchema {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            monitored_tools: vec![
+                "cursor".to_string(),
+                "cline".to_string(),
+                "continue".to_string(),
+                "codeium".to_string(),
+                "copilot".to_string(),
+            ],
+            cursor: None,
+            cline: None,
+            continue_tool: None,
+            codeium: None,
+            copilot: None,
+            alerts: ExternalToolsAlertsSchema::default(),
+        }
+    }
+}
+
+impl Default for ExternalToolsAlertsSchema {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            alert_threshold_percent: default_alert_threshold(),
+            auto_adjust_quota: true,
+            reserved_quota_percent: default_reserved_quota(),
+        }
     }
 }

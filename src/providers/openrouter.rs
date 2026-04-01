@@ -298,6 +298,15 @@ impl OpenRouterProvider {
     fn http_client(&self) -> Client {
         crate::config::build_runtime_proxy_client_with_timeouts("provider.openrouter", 120, 10)
     }
+
+    fn normalize_openrouter_model(model: &str) -> String {
+        model
+            .trim()
+            .strip_prefix("openrouter/")
+            .unwrap_or(model.trim())
+            .to_string()
+    }
+
 }
 
 #[async_trait]
@@ -316,6 +325,10 @@ impl Provider for OpenRouterProvider {
             self.http_client()
                 .get("https://openrouter.ai/api/v1/auth/key")
                 .header("Authorization", format!("Bearer {credential}"))
+                .header("HTTP-Referer", "https://openclaw.ai")
+                .header("X-OpenRouter-Title", "OpenClaw")
+                .header("X-OpenRouter-Categories", "cli-agent")
+                .header("User-Agent", "OpenClaw/2026.3.19")
                 .send()
                 .await?
                 .error_for_status()?;
@@ -347,8 +360,9 @@ impl Provider for OpenRouterProvider {
             content: Self::to_message_content("user", message),
         });
 
+        let normalized_model = Self::normalize_openrouter_model(model);
         let request = ChatRequest {
-            model: model.to_string(),
+            model: normalized_model.clone(),
             messages,
             temperature,
         };
@@ -357,11 +371,10 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
-            .header("X-Title", "ZeroClaw")
+            .header("HTTP-Referer", "https://openclaw.ai")
+            .header("X-OpenRouter-Title", "OpenClaw")
+            .header("X-OpenRouter-Categories", "cli-agent")
+            .header("User-Agent", "OpenClaw/2026.3.19")
             .json(&request)
             .send()
             .await?;
@@ -397,8 +410,9 @@ impl Provider for OpenRouterProvider {
             })
             .collect();
 
+        let normalized_model = Self::normalize_openrouter_model(model);
         let request = ChatRequest {
-            model: model.to_string(),
+            model: normalized_model.clone(),
             messages: api_messages,
             temperature,
         };
@@ -407,11 +421,10 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
-            .header("X-Title", "ZeroClaw")
+            .header("HTTP-Referer", "https://openclaw.ai")
+            .header("X-OpenRouter-Title", "OpenClaw")
+            .header("X-OpenRouter-Categories", "cli-agent")
+            .header("User-Agent", "OpenClaw/2026.3.19")
             .json(&request)
             .send()
             .await?;
@@ -443,8 +456,9 @@ impl Provider for OpenRouterProvider {
         })?;
 
         let tools = Self::convert_tools(request.tools);
+        let normalized_model = Self::normalize_openrouter_model(model);
         let native_request = NativeChatRequest {
-            model: model.to_string(),
+            model: normalized_model.clone(),
             messages: Self::convert_messages(request.messages),
             temperature,
             tool_choice: tools.as_ref().map(|_| "auto".to_string()),
@@ -455,11 +469,10 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
-            .header("X-Title", "ZeroClaw")
+            .header("HTTP-Referer", "https://openclaw.ai")
+            .header("X-OpenRouter-Title", "OpenClaw")
+            .header("X-OpenRouter-Categories", "cli-agent")
+            .header("User-Agent", "OpenClaw/2026.3.19")
             .json(&native_request)
             .send()
             .await?;
@@ -537,8 +550,9 @@ impl Provider for OpenRouterProvider {
         // when history contains native tool-call metadata.
         let native_messages = Self::convert_messages(messages);
 
+        let normalized_model = Self::normalize_openrouter_model(model);
         let native_request = NativeChatRequest {
-            model: model.to_string(),
+            model: normalized_model.clone(),
             messages: native_messages,
             temperature,
             tool_choice: native_tools.as_ref().map(|_| "auto".to_string()),
@@ -549,11 +563,10 @@ impl Provider for OpenRouterProvider {
             .http_client()
             .post("https://openrouter.ai/api/v1/chat/completions")
             .header("Authorization", format!("Bearer {credential}"))
-            .header(
-                "HTTP-Referer",
-                "https://github.com/theonlyhennygod/zeroclaw",
-            )
-            .header("X-Title", "ZeroClaw")
+            .header("HTTP-Referer", "https://openclaw.ai")
+            .header("X-OpenRouter-Title", "OpenClaw")
+            .header("X-OpenRouter-Categories", "cli-agent")
+            .header("User-Agent", "OpenClaw/2026.3.19")
             .json(&native_request)
             .send()
             .await?;
@@ -902,6 +915,22 @@ mod tests {
         let json = r#"{"choices": [{"message": {"content": "Hello"}}]}"#;
         let resp: NativeChatResponse = serde_json::from_str(json).unwrap();
         assert!(resp.usage.is_none());
+    }
+
+    #[test]
+    fn normalize_openrouter_model_accepts_openclaw_prefix() {
+        assert_eq!(
+            OpenRouterProvider::normalize_openrouter_model("openrouter/xiaomi/mimo-v2-pro"),
+            "xiaomi/mimo-v2-pro"
+        );
+    }
+
+    #[test]
+    fn normalize_openrouter_model_keeps_standard_model_name() {
+        assert_eq!(
+            OpenRouterProvider::normalize_openrouter_model("xiaomi/mimo-v2-omni"),
+            "xiaomi/mimo-v2-omni"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════

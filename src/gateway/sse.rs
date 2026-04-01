@@ -52,7 +52,11 @@ pub async fn handle_sse_events(
                 Ok(value) => Some(Ok::<_, Infallible>(
                     Event::default().data(value.to_string()),
                 )),
-                Err(_) => None, // Skip lagged messages
+                Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(count)) => {
+                    tracing::warn!("SSE Stream lagged, dropped {} messages", count);
+                    None
+                },
+                Err(_) => None, // Other errors
             }
         },
     );

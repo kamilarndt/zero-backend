@@ -1,0 +1,483 @@
+/* ══════════════════════════════════════════════════════════════
+   DataTableBlock — TanStack Table + BlockNote integration
+   Catppuccin Mocha theme
+   FAZA 3.2 (Sorting/Filtering/Resize) + FAZA 3.4 (Polish)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── FAZA 3.4: CSS Variables (Catppuccin Mocha) ─────────────── */
+.dt-block {
+  --border-color: var(--border);
+  --header-bg: var(--bg-overlay);
+  --row-hover: rgba(137, 180, 250, 0.05);
+  --cell-padding: 8px 12px;
+}
+
+/* ── Block container ────────────────────────────────────────── */
+.dt-block {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--widget-radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 200px;
+  outline: none;
+}
+
+.dt-block:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.25);
+}
+
+/* ── Toolbar ────────────────────────────────────────────────── */
+.dt-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dt-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dt-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-table-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dt-row-count {
+  font-size: 11px;
+  color: var(--overlay);
+  font-family: var(--font-mono);
+}
+
+.dt-demo-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(249, 226, 175, 0.15);
+  color: var(--yellow);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* ── FAZA 3.2: Global Filter ────────────────────────────────── */
+.dt-global-filter {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-base);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  width: 160px;
+  transition: border-color 0.15s;
+}
+
+.dt-global-filter:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px rgba(137, 180, 250, 0.3);
+}
+
+.dt-global-filter::placeholder {
+  color: var(--overlay);
+}
+
+/* ── FAZA 3.2: Per-Column Filter Row ────────────────────────── */
+.dt-filter-row .dt-th-filter {
+  padding: 4px 6px;
+  background: var(--bg-mantle);
+}
+
+.dt-column-filter {
+  width: 100%;
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-base);
+  color: var(--text);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.dt-column-filter:focus {
+  border-color: var(--blue);
+}
+
+.dt-column-filter::placeholder {
+  color: var(--overlay);
+  font-size: 10px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+.dt-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.dt-btn:hover {
+  background: var(--header-bg);
+  border-color: var(--overlay);
+}
+
+.dt-btn-active {
+  background: rgba(137, 180, 250, 0.15);
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
+.dt-btn-add {
+  color: var(--green);
+  border-color: rgba(166, 227, 161, 0.3);
+}
+
+.dt-btn-add:hover {
+  background: rgba(166, 227, 161, 0.1);
+  border-color: var(--green);
+}
+
+.dt-btn-import {
+  color: var(--peach);
+  border-color: rgba(250, 179, 135, 0.3);
+}
+
+.dt-btn-import:hover {
+  background: rgba(250, 179, 135, 0.1);
+  border-color: var(--peach);
+}
+
+.dt-btn-export {
+  color: var(--teal);
+  border-color: rgba(148, 226, 213, 0.3);
+}
+
+.dt-btn-export:hover {
+  background: rgba(148, 226, 213, 0.1);
+  border-color: var(--teal);
+}
+
+/* ── Table container (scrollable) ───────────────────────────── */
+.dt-container {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.dt-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dt-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-container::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.dt-container::-webkit-scrollbar-thumb:hover {
+  background: var(--overlay);
+}
+
+/* ── Table ──────────────────────────────────────────────────── */
+.dt-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.dt-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.dt-th {
+  background: var(--bg-mantle);
+  border-bottom: 2px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--subtext);
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+}
+
+.dt-th:last-child {
+  border-right: none;
+}
+
+.dt-col-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* FAZA 3.2: Sortable header */
+.dt-col-header-sortable {
+  cursor: pointer;
+}
+
+.dt-col-header-sortable:hover {
+  color: var(--text);
+}
+
+.dt-col-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-col-type-badge {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+/* FAZA 3.2: Sort indicator */
+.dt-sort-indicator {
+  font-size: 11px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.dt-sort-none {
+  opacity: 0.3;
+}
+
+.dt-sort-active {
+  opacity: 1;
+  color: var(--blue);
+}
+
+.dt-formula-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: rgba(249, 226, 175, 0.15);
+  color: var(--yellow);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* ── FAZA 3.2: Column Resize Handle ─────────────────────────── */
+.dt-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 0.15s;
+}
+
+.dt-resize-handle:hover,
+.dt-resize-active {
+  background: var(--blue);
+}
+
+.dt-resize-active {
+  opacity: 0.8;
+}
+
+/* ── Column type alignment (FAZA 3.2) ───────────────────────── */
+.column-type-text { }
+.column-type-number { text-align: right; font-family: var(--font-mono); }
+.column-type-date { }
+.column-type-select { }
+.column-type-checkbox { text-align: center; }
+
+/* ── Rows ───────────────────────────────────────────────────── */
+.dt-tr {
+  transition: background 0.1s;
+}
+
+.dt-tr:hover {
+  background: var(--row-hover);
+}
+
+.dt-tr-focused {
+  background: rgba(137, 180, 250, 0.06);
+}
+
+/* ── Cells ──────────────────────────────────────────────────── */
+.dt-td {
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  padding: 0;
+  height: 36px;
+  vertical-align: middle;
+  overflow: hidden;
+  position: relative;
+}
+
+.dt-td:last-child {
+  border-right: none;
+}
+
+.dt-td-focused {
+  box-shadow: inset 0 0 0 2px var(--blue);
+  z-index: 2;
+}
+
+.dt-cell {
+  padding: var(--cell-padding);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  color: var(--text);
+}
+
+.dt-cell:hover {
+  background: rgba(137, 180, 250, 0.04);
+}
+
+.dt-cell-computed {
+  color: var(--yellow);
+  cursor: default;
+  font-style: italic;
+}
+
+.dt-cell-computed:hover {
+  background: transparent;
+}
+
+/* ── Cell Editor ────────────────────────────────────────────── */
+.dt-cell-input {
+  width: 100%;
+  height: 100%;
+  padding: var(--cell-padding);
+  border: none;
+  outline: none;
+  background: var(--bg-base);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.dt-cell-input:focus {
+  background: var(--bg-base);
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
+
+.dt-cell-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+/* ── Loading / Error / Empty states ─────────────────────────── */
+.dt-loading,
+.dt-error,
+.dt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  color: var(--overlay);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.dt-error {
+  color: var(--red);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FAZA 3.4: Mobile Support
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .dt-container {
+    overflow-x: auto;
+  }
+
+  .dt-table {
+    min-width: 500px;
+  }
+
+  .dt-toolbar {
+    padding: 6px 8px;
+  }
+
+  .dt-global-filter {
+    width: 120px;
+  }
+}
+
+@media (max-width: 600px) {
+  .dt-table {
+    font-size: 11px;
+  }
+
+  .dt-th {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+
+  .dt-cell {
+    padding: 4px 6px;
+  }
+
+  .dt-toolbar {
+    padding: 6px 8px;
+  }
+
+  .dt-global-filter {
+    width: 100px;
+    font-size: 11px;
+  }
+}

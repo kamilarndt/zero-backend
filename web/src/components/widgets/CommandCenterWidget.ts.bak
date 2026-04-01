@@ -1,0 +1,507 @@
+/**
+ * CommandCenterWidget — 4-panel command center.
+ *
+ * Layout:
+ *   Header: Agent Dropdown selector
+ *   Left:   Session List (CRUD via /v1/chat/sessions)
+ *   Center: Chat (messages + input, SSE streaming)
+ *   Right:  Swarm Activity (SSE telemetry feed)
+ *
+ * Follows push-based WidgetModule pattern (showcase/my-daily-monitor).
+ */
+
+import type { WidgetModule, EventPush, Cleanup, SSEEvent } from '../../types';
+import { registerWidget } from '../../widgetRegistry';
+
+const API = '/v1';
+
+// ── Types ────────────────────────────────────────────────────────
+
+interface Session {
+  id: string;
+  title: string;
+  agent: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp: string;
+}
+
+interface SwarmEvent {
+  type: string;
+  agent?: string;
+  task?: string;
+  status?: string;
+  progress?: number;
+  timestamp?: string;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+function el(tag: string, cls?: string, style?: string): HTMLElement {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (style) e.style.cssText = style;
+  return e;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatTime(ts?: string): string {
+  if (!ts) return '';
+  const d = new Date(Number(ts) || ts);
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const s = d.getSeconds().toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+// ── Widget Module ────────────────────────────────────────────────
+
+const CommandCenterWidget: WidgetModule = {
+  id: 'command-center',
+  title: 'Command Center',
+  span: 'col-span-2 row-span-2',
+
+  init(container: HTMLElement, push: EventPush): Cleanup {
+    // State
+    let sessions: Session[] = [];
+    let activeSessionId: string | null = null;
+    let messages: ChatMessage[] = [];
+    let swarmEvents: SwarmEvent[] = [];
+    let isStreaming = false;
+    let currentAgent = 'zeroclaw-auto-router';
+
+    const AGENTS = [
+      'zeroclaw-auto-router',
+      'gpt-5.3-codex',
+      'kimi',
+      'deepseek-r1',
+      'claude-4-sonnet',
+    ];
+
+    const MAX_SWARM = 100;
+    const MAX_MESSAGES = 500;
+
+    // ═══════════════════════════════════════════════════════════
+    // Build DOM
+    // ═══════════════════════════════════════════════════════════
+
+    const root = el('div', 'cc-container');
+    container.appendChild(root);
+
+    // ── Header ────────────────────────────────────────────────
+    const header = el('div', 'cc-header');
+    const headerLeft = el('div', 'cc-header-left');
+    const title = el('span', 'cc-header-title');
+    title.textContent = '⚡ COMMAND CENTER';
+    headerLeft.appendChild(title);
+
+    const headerRight = el('div', 'cc-header-right');
+    const agentLabel = el('span', 'cc-agent-label');
+    agentLabel.textContent = 'Agent:';
+    const agentSelect = document.createElement('select');
+    agentSelect.className = 'cc-agent-select';
+    for (const a of AGENTS) {
+      const opt = document.createElement('option');
+      opt.value = a;
+      opt.textContent = a;
+      agentSelect.appendChild(opt);
+    }
+    agentSelect.value = currentAgent;
+    agentSelect.addEventListener('change', () => {
+      currentAgent = agentSelect.value;
+    });
+    headerRight.appendChild(agentLabel);
+    headerRight.appendChild(agentSelect);
+
+    header.appendChild(headerLeft);
+    header.appendChild(headerRight);
+    root.appendChild(header);
+
+    // ── Body (3-column grid) ──────────────────────────────────
+    const body = el('div', 'cc-body');
+    root.appendChild(body);
+
+    // ═══════════════════════════════════════════════════════════
+    // LEFT PANEL: Sessions
+    // ═══════════════════════════════════════════════════════════
+
+    const sessionsPanel = el('div', 'cc-sessions');
+    body.appendChild(sessionsPanel);
+
+    const sessionsHeader = el('div', 'cc-sessions-header');
+    const sessionsTitle = el('span');
+    sessionsTitle.textContent = 'Sessions';
+    const btnNew = document.createElement('button');
+    btnNew.className = 'cc-btn-new';
+    btnNew.textContent = '+';
+    btnNew.title = 'New session';
+    sessionsHeader.appendChild(sessionsTitle);
+    sessionsHeader.appendChild(btnNew);
+    sessionsPanel.appendChild(sessionsHeader);
+
+    const sessionsList = el('div', 'cc-sessions-list');
+    sessionsPanel.appendChild(sessionsList);
+
+    function renderSessions() {
+      sessionsList.innerHTML = '';
+      if (sessions.length === 0) {
+        const empty = el('div', 'cc-empty');
+        empty.textContent = 'No sessions yet';
+        sessionsList.appendChild(empty);
+        return;
+      }
+      for (const s of sessions) {
+        const item = el('div', 'cc-session-item' + (s.id === activeSessionId ? ' active' : ''));
+        const titleEl = el('div', 'cc-session-title');
+        titleEl.textContent = s.title || `Session ${s.id.slice(0, 8)}`;
+        const meta = el('div', 'cc-session-meta');
+        meta.textContent = `${s.agent} · ${timeAgo(s.updated_at)}`;
+        item.appendChild(titleEl);
+        item.appendChild(meta);
+        item.addEventListener('click', () => selectSession(s.id));
+        sessionsList.appendChild(item);
+      }
+    }
+
+    async function fetchSessions() {
+      try {
+        const res = await fetch(`${API}/chat/sessions`);
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = await res.json();
+        sessions = data.sessions || data || [];
+        renderSessions();
+      } catch (e) {
+        console.warn('[CommandCenter] fetchSessions failed:', e);
+      }
+    }
+
+    async function createSession() {
+      try {
+        const res = await fetch(`${API}/chat/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agent: currentAgent, title: `Chat ${new Date().toLocaleTimeString()}` }),
+        });
+        if (!res.ok) throw new Error(`${res.status}`);
+        const session = await res.json();
+        sessions.unshift(session);
+        renderSessions();
+        selectSession(session.id);
+      } catch (e) {
+        console.warn('[CommandCenter] createSession failed:', e);
+      }
+    }
+
+    async function selectSession(id: string) {
+      activeSessionId = id;
+      messages = [];
+      renderSessions();
+      renderMessages();
+      // Load history if available
+      try {
+        const res = await fetch(`${API}/chat/sessions/${id}/messages`);
+        if (res.ok) {
+          const data = await res.json();
+          messages = data.messages || data || [];
+          renderMessages();
+          scrollChat();
+        }
+      } catch {
+        // No history endpoint yet — that's fine
+      }
+    }
+
+    btnNew.addEventListener('click', createSession);
+
+    // ═══════════════════════════════════════════════════════════
+    // CENTER PANEL: Chat
+    // ═══════════════════════════════════════════════════════════
+
+    const chatPanel = el('div', 'cc-chat');
+    body.appendChild(chatPanel);
+
+    const chatMessages = el('div', 'cc-chat-messages');
+    chatPanel.appendChild(chatMessages);
+
+    const chatInput = el('div', 'cc-chat-input');
+    const textarea = document.createElement('textarea');
+    textarea.className = 'cc-textarea';
+    textarea.placeholder = 'Type a message... (Enter to send, Shift+Enter for newline)';
+    textarea.rows = 2;
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'cc-btn-send';
+    sendBtn.textContent = 'Send';
+    chatInput.appendChild(textarea);
+    chatInput.appendChild(sendBtn);
+    chatPanel.appendChild(chatInput);
+
+    function renderMessages() {
+      chatMessages.innerHTML = '';
+      if (messages.length === 0) {
+        const empty = el('div', 'cc-empty');
+        empty.textContent = activeSessionId ? 'No messages yet. Start chatting!' : 'Select or create a session to begin.';
+        chatMessages.appendChild(empty);
+        return;
+      }
+      for (const msg of messages) {
+        const bubble = el('div', `cc-msg cc-msg-${msg.role}`);
+        const role = el('div', 'cc-msg-role');
+        role.textContent = msg.role === 'user' ? 'You' : msg.role === 'assistant' ? 'Agent' : 'System';
+        const content = el('div', 'cc-msg-content');
+        content.textContent = msg.content;
+        const time = el('div', 'cc-msg-time');
+        time.textContent = formatTime(msg.timestamp);
+        bubble.appendChild(role);
+        bubble.appendChild(content);
+        bubble.appendChild(time);
+        chatMessages.appendChild(bubble);
+      }
+    }
+
+    function scrollChat() {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function addMessage(msg: ChatMessage) {
+      messages.push(msg);
+      if (messages.length > MAX_MESSAGES) messages.shift();
+      renderMessages();
+      scrollChat();
+    }
+
+    async function sendMessage() {
+      const text = textarea.value.trim();
+      if (!text || isStreaming) return;
+      textarea.value = '';
+
+      if (!activeSessionId) {
+        await createSession();
+        if (!activeSessionId) return;
+      }
+
+      addMessage({ role: 'user', content: text, timestamp: String(Date.now()) });
+
+      isStreaming = true;
+      sendBtn.disabled = true;
+      textarea.disabled = true;
+
+      // Add placeholder for streaming response
+      const assistantIdx = messages.length;
+      addMessage({ role: 'assistant', content: '▊', timestamp: String(Date.now()) });
+
+      try {
+        const res = await fetch(`${API}/chat/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: activeSessionId,
+            message: text,
+            model: currentAgent,
+          }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        // Try streaming read
+        const reader = res.body?.getReader();
+        if (reader) {
+          const decoder = new TextDecoder();
+          let accumulated = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            accumulated += chunk;
+            messages[assistantIdx].content = accumulated;
+            renderMessages();
+            scrollChat();
+          }
+        } else {
+          // Fallback: full JSON response
+          const data = await res.json();
+          messages[assistantIdx].content = data.response || data.content || JSON.stringify(data);
+          renderMessages();
+        }
+      } catch (e) {
+        const errMsg = e instanceof Error ? e.message : 'Unknown error';
+        messages[assistantIdx].content = `⚠️ Error: ${errMsg}`;
+        messages[assistantIdx].role = 'system';
+        renderMessages();
+      } finally {
+        isStreaming = false;
+        sendBtn.disabled = false;
+        textarea.disabled = false;
+        textarea.focus();
+      }
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    textarea.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // RIGHT PANEL: Swarm Activity
+    // ═══════════════════════════════════════════════════════════
+
+    const swarmPanel = el('div', 'cc-swarm');
+    body.appendChild(swarmPanel);
+
+    const swarmHeader = el('div', 'cc-swarm-header');
+    const swarmTitle = el('span');
+    swarmTitle.textContent = 'Swarm Activity';
+    const swarmCount = el('span', 'cc-swarm-count');
+    swarmCount.textContent = '0';
+    swarmHeader.appendChild(swarmTitle);
+    swarmHeader.appendChild(swarmCount);
+    swarmPanel.appendChild(swarmHeader);
+
+    const swarmFeed = el('div', 'cc-swarm-feed');
+    swarmPanel.appendChild(swarmFeed);
+
+    function renderSwarm() {
+      swarmFeed.innerHTML = '';
+      swarmCount.textContent = String(swarmEvents.length);
+
+      if (swarmEvents.length === 0) {
+        const empty = el('div', 'cc-empty');
+        empty.textContent = 'No swarm activity yet';
+        swarmFeed.appendChild(empty);
+        return;
+      }
+
+      // Render newest first
+      for (let i = swarmEvents.length - 1; i >= 0; i--) {
+        const evt = swarmEvents[i];
+        const typeClass = `cc-swarm-${(evt.type || 'task_update').replace(/[^a-z_]/g, '')}`;
+        const item = el('div', `cc-swarm-item ${typeClass}`);
+
+        const top = el('div', 'cc-swarm-top');
+        const typeEl = el('span', 'cc-swarm-type');
+        typeEl.textContent = (evt.type || 'event').replace(/_/g, ' ');
+        const timeEl = el('span', 'cc-swarm-time');
+        timeEl.textContent = formatTime(evt.timestamp);
+        top.appendChild(typeEl);
+        top.appendChild(timeEl);
+        item.appendChild(top);
+
+        const bodyEl = el('div', 'cc-swarm-body');
+        if (evt.agent) {
+          const agentEl = el('span', 'cc-swarm-agent');
+          agentEl.textContent = evt.agent;
+          bodyEl.appendChild(agentEl);
+        }
+        if (evt.task) {
+          const taskEl = el('div', 'cc-swarm-task');
+          taskEl.textContent = evt.task;
+          bodyEl.appendChild(taskEl);
+        }
+        item.appendChild(bodyEl);
+
+        if (typeof evt.progress === 'number') {
+          const progOuter = el('div', 'cc-swarm-progress');
+          const progBar = el('div', 'cc-swarm-progress-bar');
+          progBar.style.width = `${Math.min(100, Math.max(0, evt.progress))}%`;
+          progOuter.appendChild(progBar);
+          item.appendChild(progOuter);
+        }
+
+        swarmFeed.appendChild(item);
+      }
+    }
+
+    function addSwarmEvent(evt: SwarmEvent) {
+      swarmEvents.push(evt);
+      if (swarmEvents.length > MAX_SWARM) swarmEvents.shift();
+      renderSwarm();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // SSE Push Handler
+    // ═══════════════════════════════════════════════════════════
+
+    const unsubscribe = push((evt: SSEEvent) => {
+      // Chat streaming events (targeted to this session)
+      if (evt.type === 'chat' || evt.type === 'chat_chunk') {
+        const data = evt.data as Record<string, unknown>;
+        if (activeSessionId && data.session_id === activeSessionId) {
+          // Streaming chunk
+          if (data.chunk) {
+            const lastMsg = messages[messages.length - 1];
+            if (lastMsg?.role === 'assistant') {
+              lastMsg.content += data.chunk as string;
+              renderMessages();
+              scrollChat();
+            }
+          }
+          // Complete message
+          if (data.message) {
+            const msg = data.message as ChatMessage;
+            addMessage(msg);
+          }
+        }
+      }
+
+      // Telemetry events → swarm feed
+      if (evt.type === 'telemetry') {
+        const data = evt.data as Record<string, unknown>;
+        addSwarmEvent({
+          type: (data.action as string) || 'task_update',
+          agent: (data.agent as string) || currentAgent,
+          task: (data.details as string) || (data.content as string) || '',
+          status: (data.status as string) || 'running',
+          progress: data.progress as number | undefined,
+          timestamp: evt.timestamp || String(Date.now()),
+        });
+      }
+
+      // Swarm-specific events
+      if (evt.type === 'swarm' || evt.type === 'delegation') {
+        const data = evt.data as Record<string, unknown>;
+        addSwarmEvent({
+          type: (data.action as string) || evt.type,
+          agent: (data.agent as string) || (data.target as string) || '',
+          task: (data.task as string) || (data.details as string) || '',
+          status: (data.status as string) || 'running',
+          progress: data.progress as number | undefined,
+          timestamp: evt.timestamp || String(Date.now()),
+        });
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // Init
+    // ═══════════════════════════════════════════════════════════
+
+    renderSessions();
+    renderMessages();
+    renderSwarm();
+    fetchSessions();
+
+    // Cleanup
+    return () => {
+      unsubscribe();
+      container.innerHTML = '';
+    };
+  },
+};
+
+registerWidget(CommandCenterWidget);
+export default CommandCenterWidget;

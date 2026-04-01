@@ -1,0 +1,212 @@
+/**
+ * LiveActivityWidget — Agent consciousness stream.
+ *
+ * Displays real-time telemetry events from the agent loop:
+ * - 🟡 Thinking (yellow) — LLM reasoning fragments
+ * - 🔵 Tool Call (blue) — tool execution started
+ * - 🟢 Tool Complete (green) — tool succeeded
+ * - 🔴 Error (red) — tool failed
+ * - 🟣 Delegation (mauve) — subagent spawned
+ *
+ * Terminal-style display with auto-scroll and max 300 entries.
+ */
+
+import type { WidgetModule, EventPush, Cleanup } from '../../types';
+import { registerWidget } from '../../widgetRegistry';
+
+const MAX_ENTRIES = 300;
+
+// ── Action → color mapping (Catppuccin Mocha) ──────────────────
+const ACTION_COLORS: Record<string, string> = {
+  thinking:          'var(--yellow)',      // agent is reasoning
+  tool_call:         'var(--blue)',        // tool invocation
+  tool_complete:     'var(--green)',       // tool finished OK
+  delegation:        'var(--mauve)',       // subagent spawned
+  response_complete: 'var(--teal)',        // turn done
+  loop_start:        'var(--subtext)',     // new turn
+  loop_idle:         'var(--overlay)',     // waiting for input
+};
+
+const STATUS_ICONS: Record<string, string> = {
+  running: '●',
+  success: '✓',
+  error:   '✗',
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  thinking:          'THINK',
+  tool_call:         'CALL',
+  tool_complete:     'DONE',
+  delegation:        'DELEG',
+  response_complete: 'RESP',
+  loop_start:        'TURN',
+  loop_idle:         'IDLE',
+};
+
+const LiveActivityWidget: WidgetModule = {
+  id: 'live-activity',
+  title: 'Live Activity',
+  span: 'row-span-2',
+
+  init(container: HTMLElement, push: EventPush): Cleanup {
+    // ── Terminal container ──────────────────────────────────
+    const terminal = document.createElement('div');
+    terminal.className = 'live-activity-terminal';
+    container.appendChild(terminal);
+
+    // ── Header bar ──────────────────────────────────────────
+    const header = document.createElement('div');
+    header.className = 'live-activity-header';
+    header.innerHTML =
+      '<span class="la-dot la-dot-thinking">●</span> THINK' +
+      ' <span class="la-dot la-dot-tool">●</span> TOOL' +
+      ' <span class="la-dot la-dot-success">●</span> OK' +
+      ' <span class="la-dot la-dot-error">●</span> ERR';
+    terminal.appendChild(header);
+
+    // ── Scrollable log area ─────────────────────────────────
+    const logArea = document.createElement('div');
+    logArea.className = 'live-activity-log';
+    terminal.appendChild(logArea);
+
+    let hasTelemetry = false;
+
+    // ── Waiting message ─────────────────────────────────────
+    const waitingEl = document.createElement('div');
+    waitingEl.className = 'la-waiting';
+    waitingEl.textContent = '⏳ Waiting for agent activity...';
+    logArea.appendChild(waitingEl);
+
+    // ── Render a single telemetry event ─────────────────────
+    function addEntry(action: string, content: string, tool?: string, status?: string, timestamp?: string) {
+      // Clear waiting message on first telemetry event
+      if (!hasTelemetry) {
+        hasTelemetry = true;
+        logArea.innerHTML = '';
+      }
+
+      const row = document.createElement('div');
+      row.className = 'la-row';
+
+      // Timestamp
+      const ts = document.createElement('span');
+      ts.className = 'la-timestamp';
+      ts.textContent = formatTimestamp(timestamp);
+
+      // Action badge
+      const badge = document.createElement('span');
+      const color = ACTION_COLORS[action] || 'var(--text)';
+      badge.className = 'la-badge';
+      badge.style.color = color;
+      const label = ACTION_LABELS[action] || action.toUpperCase().slice(0, 4);
+      const icon = STATUS_ICONS[status || ''] || '';
+      badge.textContent = `${icon} ${label}`;
+
+      // Tool name (if present)
+      const toolEl = document.createElement('span');
+      toolEl.className = 'la-tool';
+      if (tool) {
+        toolEl.textContent = ` ${tool}`;
+        toolEl.style.color = 'var(--peach)';
+      }
+
+      // Content
+      const contentEl = document.createElement('span');
+      contentEl.className = 'la-content';
+      contentEl.style.color = color;
+      contentEl.textContent = ` ${content}`;
+
+      row.appendChild(ts);
+      row.appendChild(badge);
+      row.appendChild(toolEl);
+      row.appendChild(contentEl);
+      logArea.appendChild(row);
+
+      // Trim old entries
+      while (logArea.children.length > MAX_ENTRIES) {
+        logArea.removeChild(logArea.firstChild!);
+      }
+
+      // Auto-scroll to bottom
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ── SSE event handler ───────────────────────────────────
+    const unsubscribe = push((evt) => {
+      // Only process telemetry events
+      if (evt.type !== 'telemetry') return;
+
+      const data = evt.data as Record<string, unknown>;
+      const action = (data.action as string) || 'unknown';
+
+      // Build content string from event data
+      let content = '';
+      switch (action) {
+        case 'thinking':
+          content = (data.content as string) || '...';
+          break;
+        case 'tool_call':
+          content = (data.params ? JSON.stringify(data.params).slice(0, 100) : '');
+          break;
+        case 'tool_complete':
+          content = (data.result as string) || '';
+          break;
+        case 'delegation':
+          content = `→ ${data.target}: ${data.task || ''}`;
+          break;
+        case 'response_complete':
+          content = `${data.tokens || '?'} tokens`;
+          break;
+        case 'loop_start':
+          content = `#${data.turn || '?'}`;
+          break;
+        case 'loop_idle':
+          content = `#${data.turn || '?'} — waiting`;
+          break;
+        default:
+          content = JSON.stringify(data).slice(0, 150);
+      }
+
+      addEntry(
+        action,
+        content,
+        data.tool as string | undefined,
+        data.status as string | undefined,
+        evt.timestamp
+      );
+    });
+
+    return () => {
+      unsubscribe();
+      container.innerHTML = '';
+    };
+  },
+};
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+function formatTimestamp(ts?: string): string {
+  if (!ts) return '[??:??:??]';
+
+  // Backend sends epoch ms
+  const ms = Number(ts);
+  if (!isNaN(ms)) {
+    const d = new Date(ms);
+    return `[${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}]`;
+  }
+
+  // Fallback: try ISO string
+  try {
+    const d = new Date(ts);
+    return `[${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}]`;
+  } catch {
+    return '[??:??:??]';
+  }
+}
+
+function pad2(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+
+registerWidget(LiveActivityWidget);
+export default LiveActivityWidget;

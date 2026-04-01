@@ -42,7 +42,7 @@ pub use schema::{
     LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig,
     MultimodalConfig, NextcloudTalkConfig, NostrConfig, ObservabilityConfig,
     PeripheralBoardConfig, PeripheralsConfig, ProxyConfig, ProxyScope,
-    QQConfig, ReliabilityConfig,
+    QQConfig, QuotaRoutingSchema, ReliabilityConfig,
     RuntimeConfig, SchedulerConfig, SecretsConfig, SignalConfig,
     SkillsConfig, SkillsPromptInjectionMode, SlackConfig,
     StreamMode, TelegramConfig, TranscriptionConfig, TunnelConfig, TailscaleTunnelConfig,
