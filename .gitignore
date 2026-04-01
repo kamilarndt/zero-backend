@@ -1,43 +1,43 @@
-/target
-firmware/*/target
-*.db
-*.db-journal
+# Build outputs
+/target/
+target/
+**/target/
+
+# Dependencies
+node_modules/
+__pycache__/
+.pytest_cache/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 ._*
-.wt-pr37/
-__pycache__/
-*.pyc
-docker-compose.override.yml
 
-# Environment files (may contain secrets)
+# Environment
 .env
-
-# Python virtual environments
-
-.venv/
-venv/
-
-# ESP32 build cache (esp-idf-sys managed)
-
-.embuild/
-.env.local
-.env.*.local
-
-# Secret keys and credentials
-.secret_key
+.env.*
 *.key
 *.pem
 credentials.json
+
+# Database
+*.db
+*.db-journal
+.qdrant/
+
+# Logs
+*.log
+
+# Temporary
+.wt-pr37/
+.embuild/
+.venv/
+
+# Worktrees
 .worktrees/
-
-# Node.js
-node_modules/
-
-# Rust targets
-/target/
-target/
-
-# Python cache
-__pycache__/
-*.pyc
-.pytest_cache/
