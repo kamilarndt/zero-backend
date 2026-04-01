@@ -4,6 +4,7 @@
 //! tool execution, and response delivery.
 
 pub mod context;
+pub mod handler;
 
 pub use context::{
     ChannelRuntimeContext,
@@ -18,3 +19,5 @@ pub use context::{
     ProviderCacheMap,
     RouteSelectionMap,
 };
+
+pub use handler::{process_channel_message, CHANNEL_MESSAGE_TIMEOUT_SECS};

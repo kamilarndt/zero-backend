@@ -1435,7 +1435,8 @@ fn spawn_scoped_typing_task(
     handle
 }
 
-async fn process_channel_message(
+// Implementation of process_channel_message (will be moved to processing module in follow-up)
+pub(crate) async fn process_channel_message_impl(
     ctx: Arc<ChannelRuntimeContext>,
     msg: traits::ChannelMessage,
     cancellation_token: CancellationToken,
@@ -2050,6 +2051,10 @@ async fn process_channel_message(
             .await;
     }
 }
+
+/// Public wrapper for process_channel_message
+/// Re-exported from processing module
+pub use processing::process_channel_message;
 
 async fn run_message_dispatch_loop(
     mut rx: tokio::sync::mpsc::Receiver<traits::ChannelMessage>,
