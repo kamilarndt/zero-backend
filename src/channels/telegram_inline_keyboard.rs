@@ -72,51 +72,48 @@ impl InlineKeyboard {
 
     /// Helper: Create Yes/No keyboard
     pub fn yes_no() -> Self {
-        Self::new()
-            .add_row(vec![
-                InlineKeyboardButton {
-                    text: "✅ Yes".to_string(),
-                    callback_data: Some("action:yes".to_string()),
-                    url: None,
-                    web_app: None,
-                },
-                InlineKeyboardButton {
-                    text: "❌ No".to_string(),
-                    callback_data: Some("action:no".to_string()),
-                    url: None,
-                    web_app: None,
-                },
-            ])
+        Self::new().add_row(vec![
+            InlineKeyboardButton {
+                text: "✅ Yes".to_string(),
+                callback_data: Some("action:yes".to_string()),
+                url: None,
+                web_app: None,
+            },
+            InlineKeyboardButton {
+                text: "❌ No".to_string(),
+                callback_data: Some("action:no".to_string()),
+                url: None,
+                web_app: None,
+            },
+        ])
     }
 
     /// Helper: Create Confirm/Cancel keyboard
     pub fn confirm_cancel() -> Self {
-        Self::new()
-            .add_row(vec![
-                InlineKeyboardButton {
-                    text: "✅ Confirm".to_string(),
-                    callback_data: Some("action:confirm".to_string()),
-                    url: None,
-                    web_app: None,
-                },
-                InlineKeyboardButton {
-                    text: "❌ Cancel".to_string(),
-                    callback_data: Some("action:cancel".to_string()),
-                    url: None,
-                    web_app: None,
-                },
-            ])
+        Self::new().add_row(vec![
+            InlineKeyboardButton {
+                text: "✅ Confirm".to_string(),
+                callback_data: Some("action:confirm".to_string()),
+                url: None,
+                web_app: None,
+            },
+            InlineKeyboardButton {
+                text: "❌ Cancel".to_string(),
+                callback_data: Some("action:cancel".to_string()),
+                url: None,
+                web_app: None,
+            },
+        ])
     }
 
     /// Helper: Create a single button with URL
     pub fn url_button(text: &str, url: &str) -> Self {
-        Self::new()
-            .add_row(vec![InlineKeyboardButton {
-                text: text.to_string(),
-                callback_data: None,
-                url: Some(url.to_string()),
-                web_app: None,
-            }])
+        Self::new().add_row(vec![InlineKeyboardButton {
+            text: text.to_string(),
+            callback_data: None,
+            url: Some(url.to_string()),
+            web_app: None,
+        }])
     }
 }
 

@@ -37,7 +37,7 @@ pub async fn handle_ws_chat(
     // Auth via query param (browser WebSocket limitation)
     if state.pairing.require_pairing() {
         let token = params.token.as_deref().unwrap_or("");
-        
+
         // 1. Try JWT
         if jwt::verify_token(token, &state.jwt_secret).is_err() {
             // 2. Fallback to PairingGuard

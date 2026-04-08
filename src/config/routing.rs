@@ -515,7 +515,9 @@ mod tests {
         assert_eq!(complexity.min_tool_calls_complex, 3);
         assert_eq!(complexity.min_function_calls_complex, 5);
         assert_eq!(complexity.nesting_depth_threshold, 3);
-        assert!(complexity.reasoning_keywords.contains(&"refactor".to_string()));
+        assert!(complexity
+            .reasoning_keywords
+            .contains(&"refactor".to_string()));
         assert!(complexity.code_extensions.contains(&"rs".to_string()));
     }
 

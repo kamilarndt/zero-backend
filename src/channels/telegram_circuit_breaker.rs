@@ -1,7 +1,7 @@
 // Zero-Bloat Circuit Breaker for Telegram API
 // Protects against cascading failures
 
-use std::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use std::time::Duration;
 
 /// Circuit breaker state
@@ -196,13 +196,13 @@ mod tests {
             ..Default::default()
         };
         let cb = CircuitBreaker::with_config(config);
-        
+
         assert!(cb.allow_request());
         cb.record_failure();
-        
+
         assert!(cb.allow_request());
         cb.record_failure();
-        
+
         // Should be open now
         assert_eq!(cb.get_state(), CircuitState::Open);
         assert!(!cb.allow_request());
@@ -215,17 +215,17 @@ mod tests {
             ..Default::default()
         };
         let cb = CircuitBreaker::with_config(config);
-        
+
         // Open the circuit
         cb.record_failure();
         cb.record_failure();
         assert_eq!(cb.get_state(), CircuitState::Open);
-        
+
         // Wait for timeout (simulate by resetting)
         cb.reset();
         assert_eq!(cb.get_state(), CircuitState::Closed);
         assert!(cb.allow_request());
-        
+
         // Success should keep it closed
         cb.record_success();
         assert_eq!(cb.get_state(), CircuitState::Closed);

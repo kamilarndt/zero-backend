@@ -1,7 +1,7 @@
-use tokio_util::sync::CancellationToken;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 
 pub struct InterruptionHandler {
     pub active_hands: Arc<RwLock<HashMap<String, CancellationToken>>>,
@@ -115,6 +115,9 @@ mod tests {
         // Try to kill a non-existent process group
         // This should return Ok() because ESRCH is treated as success
         let result = InterruptionHandler::kill_process_group(99999);
-        assert!(result.is_ok(), "kill_process_group should handle ESRCH gracefully");
+        assert!(
+            result.is_ok(),
+            "kill_process_group should handle ESRCH gracefully"
+        );
     }
 }

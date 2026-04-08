@@ -11,7 +11,6 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use uuid::Uuid;
 
 /// Configuration for the Skills Engine
 #[derive(Debug, Clone)]
@@ -91,8 +90,8 @@ impl SkillsEngine {
         embedder: Arc<dyn EmbeddingProvider>,
     ) -> Result<Self> {
         let db_path = workspace_dir.join("brain.db");
-        let conn = Connection::open(&db_path)
-            .context("Failed to open brain.db for SkillsEngine")?;
+        let conn =
+            Connection::open(&db_path).context("Failed to open brain.db for SkillsEngine")?;
 
         let config = SkillsConfig {
             workspace_dir: workspace_dir.to_path_buf(),
@@ -120,7 +119,8 @@ impl SkillsEngine {
         // Initialize Qdrant collection
         self.init_qdrant_collection().await?;
 
-        self.initialized.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.initialized
+            .store(true, std::sync::atomic::Ordering::Relaxed);
         Ok(())
     }
 
@@ -144,18 +144,21 @@ impl SkillsEngine {
             )
             "#,
             [],
-        ).context("Failed to create agent_skills table")?;
+        )
+        .context("Failed to create agent_skills table")?;
 
         // Create indexes
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_skills_name ON agent_skills(name)",
             [],
-        ).context("Failed to create idx_skills_name")?;
+        )
+        .context("Failed to create idx_skills_name")?;
 
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_skills_active ON agent_skills(is_active)",
             [],
-        ).context("Failed to create idx_skills_active")?;
+        )
+        .context("Failed to create idx_skills_active")?;
 
         Ok(())
     }
@@ -164,7 +167,10 @@ impl SkillsEngine {
     async fn init_qdrant_collection(&self) -> Result<()> {
         // Note: QdrantMemory handles collection creation lazily
         // We just need to ensure our collection name is used
-        tracing::info!("SkillsEngine using Qdrant collection: {}", self.config.qdrant_collection);
+        tracing::info!(
+            "SkillsEngine using Qdrant collection: {}",
+            self.config.qdrant_collection
+        );
         Ok(())
     }
 
@@ -199,7 +205,8 @@ impl SkillsEngine {
                     &now,
                     id,
                 ],
-            ).context("Failed to update skill")?;
+            )
+            .context("Failed to update skill")?;
             id
         } else {
             // Insert new skill
@@ -234,14 +241,21 @@ impl SkillsEngine {
         let key = format!("skill:{}", skill.name);
 
         // Store in Qdrant with metadata
-        self.qdrant.store(
-            &key,
-            &skill.description,
-            MemoryCategory::Custom("skill".to_string()),
-            None,
-        ).await.context("Failed to upsert skill to Qdrant")?;
+        self.qdrant
+            .store(
+                &key,
+                &skill.description,
+                MemoryCategory::Custom("skill".to_string()),
+                None,
+            )
+            .await
+            .context("Failed to upsert skill to Qdrant")?;
 
-        tracing::debug!("Upserted skill '{}' to Qdrant (id: {})", skill.name, skill_id);
+        tracing::debug!(
+            "Upserted skill '{}' to Qdrant (id: {})",
+            skill.name,
+            skill_id
+        );
         Ok(())
     }
 
@@ -255,21 +269,23 @@ impl SkillsEngine {
              FROM agent_skills WHERE id = ?"
         )?;
 
-        let skill = stmt.query_row(params![id], |row| {
-            Ok(Skill {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                description: row.get(2)?,
-                content: row.get(3)?,
-                version: row.get(4)?,
-                author: row.get(5)?,
-                tags: serde_json::from_str(&row.get::<_, String>(6)?).unwrap_or_default(),
-                tools: serde_json::from_str(&row.get::<_, String>(7)?).unwrap_or_default(),
-                is_active: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+        let skill = stmt
+            .query_row(params![id], |row| {
+                Ok(Skill {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    content: row.get(3)?,
+                    version: row.get(4)?,
+                    author: row.get(5)?,
+                    tags: serde_json::from_str(&row.get::<_, String>(6)?).unwrap_or_default(),
+                    tools: serde_json::from_str(&row.get::<_, String>(7)?).unwrap_or_default(),
+                    is_active: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
             })
-        }).optional()?;
+            .optional()?;
 
         Ok(skill)
     }
@@ -284,21 +300,23 @@ impl SkillsEngine {
              FROM agent_skills WHERE name = ?"
         )?;
 
-        let skill = stmt.query_row(params![name], |row| {
-            Ok(Skill {
-                id: Some(row.get(0)?),
-                name: row.get(1)?,
-                description: row.get(2)?,
-                content: row.get(3)?,
-                version: row.get(4)?,
-                author: row.get(5)?,
-                tags: serde_json::from_str(&row.get::<_, String>(6)?).unwrap_or_default(),
-                tools: serde_json::from_str(&row.get::<_, String>(7)?).unwrap_or_default(),
-                is_active: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+        let skill = stmt
+            .query_row(params![name], |row| {
+                Ok(Skill {
+                    id: Some(row.get(0)?),
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    content: row.get(3)?,
+                    version: row.get(4)?,
+                    author: row.get(5)?,
+                    tags: serde_json::from_str(&row.get::<_, String>(6)?).unwrap_or_default(),
+                    tools: serde_json::from_str(&row.get::<_, String>(7)?).unwrap_or_default(),
+                    is_active: row.get(8)?,
+                    created_at: row.get(9)?,
+                    updated_at: row.get(10)?,
+                })
             })
-        }).optional()?;
+            .optional()?;
 
         Ok(skill)
     }
@@ -349,7 +367,10 @@ impl SkillsEngine {
         self.ensure_initialized().await?;
 
         // Search Qdrant for matching skills
-        let entries = self.qdrant.recall(query, self.config.search_limit, None).await?;
+        let entries = self
+            .qdrant
+            .recall(query, self.config.search_limit, None)
+            .await?;
 
         let mut results = Vec::new();
         for entry in entries {
@@ -366,7 +387,11 @@ impl SkillsEngine {
         }
 
         // Sort by score descending
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        results.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         Ok(results)
     }

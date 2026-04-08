@@ -1,7 +1,7 @@
 //! OpenAI-compatible `/v1/chat/completions` and `/v1/models` endpoints.
 
+use super::format_sse_event;
 use super::AppState;
-use super::{format_sse_event};
 use crate::providers::traits::{ChatMessage, ChatResponse, ToolCall};
 use crate::tools::traits::ToolSpec;
 // Import routing types for zeroclaw-auto-router
@@ -12,9 +12,7 @@ use axum::{
     http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json},
 };
-use futures_util::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
 use std::net::SocketAddr;
 use uuid::Uuid;
 
@@ -179,7 +177,15 @@ impl<'de> serde::Deserialize<'de> for ChatCompletionsMessage {
         }
 
         // String deserialization (for edge cases)
-        const FIELDS: &[&str] = &["role", "content", "name", "tool_calls", "tool_call_id", "tool_id", "refusal"];
+        const FIELDS: &[&str] = &[
+            "role",
+            "content",
+            "name",
+            "tool_calls",
+            "tool_call_id",
+            "tool_id",
+            "refusal",
+        ];
         deserializer.deserialize_struct("ChatCompletionsMessage", FIELDS, ChatMessageVisitor)
     }
 }
@@ -219,7 +225,8 @@ where
                             }
                         }
                         "image_url" => {
-                            if let Some(img_obj) = obj.get("image_url").and_then(|v| v.as_object()) {
+                            if let Some(img_obj) = obj.get("image_url").and_then(|v| v.as_object())
+                            {
                                 if let Some(url) = img_obj.get("url").and_then(|u| u.as_str()) {
                                     image_urls.push(url.to_string());
                                 }
@@ -291,8 +298,11 @@ where
         }
         MessageFormat::Multimodal(value) => {
             // Check if it has multimodal content array
-            let obj = value.as_object().ok_or_else(|| serde::de::Error::custom("Expected object"))?;
-            let role = obj.get("role")
+            let obj = value
+                .as_object()
+                .ok_or_else(|| serde::de::Error::custom("Expected object"))?;
+            let role = obj
+                .get("role")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| serde::de::Error::custom("Missing role"))?
                 .to_string();
@@ -307,11 +317,23 @@ where
                 role,
                 content,
                 image_urls,
-                name: obj.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                name: obj
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
                 tool_calls: obj.get("tool_calls").cloned(),
-                tool_call_id: obj.get("tool_call_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                tool_id: obj.get("tool_id").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                refusal: obj.get("refusal").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                tool_call_id: obj
+                    .get("tool_call_id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                tool_id: obj
+                    .get("tool_id")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+                refusal: obj
+                    .get("refusal")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
             }
         }
     };
@@ -424,7 +446,8 @@ pub async fn handle_v1_chat_completions(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
-    let rate_key = super::client_key_from_request(Some(peer_addr), &headers, state.trust_forwarded_headers);
+    let rate_key =
+        super::client_key_from_request(Some(peer_addr), &headers, state.trust_forwarded_headers);
     if !state.rate_limiter.allow_webhook(&rate_key) {
         let err = serde_json::json!({
             "error": {
@@ -437,7 +460,10 @@ pub async fn handle_v1_chat_completions(
     }
 
     if state.pairing.require_pairing() {
-        let auth = headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()).unwrap_or("");
+        let auth = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
         let token = auth.strip_prefix("Bearer ").unwrap_or("");
         if !(state.pairing.is_authenticated(token).await) {
             let err = serde_json::json!({
@@ -452,13 +478,21 @@ pub async fn handle_v1_chat_completions(
     }
 
     if body.len() > CHAT_COMPLETIONS_MAX_BODY_SIZE {
-        return (StatusCode::PAYLOAD_TOO_LARGE, Json(serde_json::json!({"error": "Payload too large"}))).into_response();
+        return (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(serde_json::json!({"error": "Payload too large"})),
+        )
+            .into_response();
     }
 
     // Log request body for debugging (truncated if too large)
     let body_str = String::from_utf8_lossy(&body);
     let body_preview = if body_str.len() > 500 {
-        format!("{}... (truncated, total {} bytes)", &body_str[..500], body.len())
+        format!(
+            "{}... (truncated, total {} bytes)",
+            &body_str[..500],
+            body.len()
+        )
     } else {
         body_str.to_string()
     };
@@ -466,14 +500,22 @@ pub async fn handle_v1_chat_completions(
 
     let request: ChatCompletionsRequest = match serde_json::from_slice(&body) {
         Ok(req) => req,
-        Err(e) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": format!("Invalid JSON: {e}")}))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": format!("Invalid JSON: {e}")})),
+            )
+                .into_response()
+        }
     };
 
     // Log request details for debugging
-    tracing::info!("Received chat completions request: stream={}, model={}, messages_count={}",
+    tracing::info!(
+        "Received chat completions request: stream={}, model={}, messages_count={}",
         request.stream.is_some(),
         request.model.as_deref().unwrap_or("default"),
-        request.messages.len());
+        request.messages.len()
+    );
 
     let model = request.model.unwrap_or_else(|| state.model.clone());
     // Map "auto" model to default model (Cline uses "auto")
@@ -484,18 +526,21 @@ pub async fn handle_v1_chat_completions(
         match &state.classifier {
             Some(classifier) => {
                 // Extract user query for classification from request.messages
-                let user_query = request.messages.iter()
+                let user_query = request
+                    .messages
+                    .iter()
                     .filter(|m| m.role == "user")
                     .last()
                     .map(|m| m.content.clone())
                     .unwrap_or_default();
 
                 // tldraw Agent: Detect images in messages for vision routing
-                let has_images = request.messages.iter()
-                    .any(|m| !m.image_urls.is_empty());
+                let has_images = request.messages.iter().any(|m| !m.image_urls.is_empty());
 
                 // Extract MIME types from image URLs for vision classification
-                let image_mime_types: Vec<String> = request.messages.iter()
+                let image_mime_types: Vec<String> = request
+                    .messages
+                    .iter()
                     .flat_map(|m| m.image_urls.iter())
                     .filter_map(|url| {
                         // Extract MIME type from data URL: "data:image/png;base64,..."
@@ -512,8 +557,11 @@ pub async fn handle_v1_chat_completions(
 
                 // Log vision detection
                 if has_images {
-                    tracing::info!("🎨 Vision content detected: {} image(s) found, MIME types: {:?}",
-                                 image_mime_types.len(), image_mime_types);
+                    tracing::info!(
+                        "🎨 Vision content detected: {} image(s) found, MIME types: {:?}",
+                        image_mime_types.len(),
+                        image_mime_types
+                    );
                 }
 
                 // Classify the task and get model hint (with vision support)
@@ -524,8 +572,11 @@ pub async fn handle_v1_chat_completions(
                 };
                 let result: ClassificationResult = classifier.classify(&input);
 
-                tracing::info!("🧠 Auto-router: classified as {:?} → model hint: {}",
-                             result.task_type, result.model);
+                tracing::info!(
+                    "🧠 Auto-router: classified as {:?} → model hint: {}",
+                    result.task_type,
+                    result.model
+                );
 
                 // Map hint to actual model (from config.toml [[model_routes]])
                 // This uses the same routing logic as configured in TOML
@@ -556,7 +607,8 @@ pub async fn handle_v1_chat_completions(
     let messages: Vec<ChatMessage> = convert_openai_messages(request.messages);
 
     // Extract user message for skill matching
-    let user_query = messages.iter()
+    let user_query = messages
+        .iter()
         .filter(|m| m.role == "user")
         .last()
         .map(|m| m.content.clone())
@@ -577,7 +629,10 @@ pub async fn handle_v1_chat_completions(
 
     // TODO: Pass enriched_system to the agent/provider
     // For now, the integration point is ready
-    tracing::debug!("Enriched system prompt with skills for query: {}", user_query);
+    tracing::debug!(
+        "Enriched system prompt with skills for query: {}",
+        user_query
+    );
 
     if stream {
         // 🔍 REGULAR STREAMING (no tools) - Keep old logic for non-tldraw clients
@@ -589,7 +644,8 @@ pub async fn handle_v1_chat_completions(
         full_messages.extend(messages);
 
         // Get response from provider
-        let response_text = match state.provider
+        let response_text = match state
+            .provider
             .chat_with_history(&full_messages, &model, temperature)
             .await
         {
@@ -632,7 +688,7 @@ pub async fn handle_v1_chat_completions(
                         content: Some(response_text.clone()),
                         tool_calls: None,
                     },
-                    finish_reason: None,  // Error chunks don't have finish_reason
+                    finish_reason: None, // Error chunks don't have finish_reason
                 }],
             };
 
@@ -691,7 +747,7 @@ pub async fn handle_v1_chat_completions(
             choices: vec![super::openai_sse_types::DeltaChoice {
                 index: 0,
                 delta: super::openai_sse_types::DeltaDelta {
-                    content: None,  // Important: None not empty string for final chunk
+                    content: None, // Important: None not empty string for final chunk
                     tool_calls: None,
                 },
                 finish_reason: Some("stop"),
@@ -702,7 +758,10 @@ pub async fn handle_v1_chat_completions(
 
         // Log SSE body for debugging (truncated if too large)
         if sse_body.len() > 2000 {
-            tracing::info!("SSE response preview (first 2000 chars): {}...", &sse_body[..2000]);
+            tracing::info!(
+                "SSE response preview (first 2000 chars): {}...",
+                &sse_body[..2000]
+            );
         } else {
             tracing::info!("SSE response: {}", sse_body);
         }
@@ -723,25 +782,36 @@ pub async fn handle_v1_chat_completions(
 
         // tldraw Agent: Convert tools if present
         let tools: Option<Vec<ToolSpec>> = request.tools.as_ref().map(|defs| {
-            defs.iter().map(|def| ToolSpec {
-                name: def.name.clone(),
-                description: def.description.clone(),
-                parameters: def.parameters.clone(),
-            }).collect()
+            defs.iter()
+                .map(|def| ToolSpec {
+                    name: def.name.clone(),
+                    description: def.description.clone(),
+                    parameters: def.parameters.clone(),
+                })
+                .collect()
         });
 
         let tools_json: Option<Vec<serde_json::Value>> = request.tools.as_ref().map(|defs| {
-            defs.iter().map(|def| serde_json::to_value(def).unwrap()).collect()
+            defs.iter()
+                .map(|def| serde_json::to_value(def).unwrap())
+                .collect()
         });
 
-        let chat_response = if let Some(tools_spec) = tools {
+        let chat_response = if let Some(_tools_spec) = tools {
             // Use chat_with_tools for tldraw agent actions
-            state.provider
-                .chat_with_tools(&full_messages, &tools_json.unwrap_or_default(), &model, temperature)
+            state
+                .provider
+                .chat_with_tools(
+                    &full_messages,
+                    &tools_json.unwrap_or_default(),
+                    &model,
+                    temperature,
+                )
                 .await
         } else {
             // Fallback to regular chat
-            match state.provider
+            match state
+                .provider
                 .chat_with_history(&full_messages, &model, temperature)
                 .await
             {
@@ -780,7 +850,10 @@ pub async fn handle_v1_chat_completions(
         let response = ChatCompletionsResponse {
             id: format!("chatcmpl-{}", Uuid::new_v4()),
             object: "chat.completion",
-            created: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            created: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             model,
             choices: vec![ChatCompletionsChoice {
                 index: 0,
@@ -792,32 +865,51 @@ pub async fn handle_v1_chat_completions(
                 finish_reason: if has_tool_calls { "tool_calls" } else { "stop" },
             }],
             usage: ChatCompletionsUsage {
-                prompt_tokens: chat_response.usage.as_ref().and_then(|u| u.input_tokens).unwrap_or(0) as u32,
-                completion_tokens: chat_response.usage.as_ref().and_then(|u| u.output_tokens).unwrap_or(0) as u32,
+                prompt_tokens: chat_response
+                    .usage
+                    .as_ref()
+                    .and_then(|u| u.input_tokens)
+                    .unwrap_or(0) as u32,
+                completion_tokens: chat_response
+                    .usage
+                    .as_ref()
+                    .and_then(|u| u.output_tokens)
+                    .unwrap_or(0) as u32,
                 total_tokens: 0,
             },
         };
-        (StatusCode::OK, Json(serde_json::to_value(response).unwrap())).into_response()
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(response).unwrap()),
+        )
+            .into_response()
     }
 }
 
-pub async fn handle_v1_models(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+pub async fn handle_v1_models(
+    State(state): State<AppState>,
+    _headers: HeaderMap,
+) -> impl IntoResponse {
     // Build list of available models
-    let mut models = vec![
-        ModelObject {
-            id: state.model.clone(),
-            object: "model",
-            created: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
-            owned_by: "zeroclaw".to_string(),
-        },
-    ];
+    let mut models = vec![ModelObject {
+        id: state.model.clone(),
+        object: "model",
+        created: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        owned_by: "zeroclaw".to_string(),
+    }];
 
     // Add virtual model if classifier is enabled
     if state.classifier.is_some() {
         models.push(ModelObject {
             id: "zeroclaw-auto-router".to_string(),
             object: "model",
-            created: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            created: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             owned_by: "zeroclaw".to_string(),
         });
     }
@@ -826,5 +918,8 @@ pub async fn handle_v1_models(State(state): State<AppState>, headers: HeaderMap)
         object: "list",
         data: models,
     };
-    (StatusCode::OK, Json(serde_json::to_value(response).unwrap()))
+    (
+        StatusCode::OK,
+        Json(serde_json::to_value(response).unwrap()),
+    )
 }

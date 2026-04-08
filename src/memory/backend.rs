@@ -115,7 +115,7 @@ pub fn classify_memory_backend(backend: &str) -> MemoryBackendKind {
 pub fn memory_backend_profile(backend: &str) -> MemoryBackendProfile {
     match classify_memory_backend(backend) {
         MemoryBackendKind::Sqlite => SQLITE_PROFILE,
-        MemoryBackendKind::Hybrid => SQLITE_PROFILE,  // Hybrid uses SQLite-compatible profile
+        MemoryBackendKind::Hybrid => SQLITE_PROFILE, // Hybrid uses SQLite-compatible profile
         MemoryBackendKind::Lucid => LUCID_PROFILE,
         MemoryBackendKind::Postgres => POSTGRES_PROFILE,
         MemoryBackendKind::Qdrant => QDRANT_PROFILE,

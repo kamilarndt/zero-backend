@@ -158,7 +158,8 @@ impl EstopManager {
         otp_code: Option<&str>,
         otp_validator: Option<&OtpValidator>,
     ) -> Result<()> {
-        self.ensure_resume_is_authorized(otp_code, otp_validator).await?;
+        self.ensure_resume_is_authorized(otp_code, otp_validator)
+            .await?;
 
         match selector {
             ResumeSelector::KillAll => {

@@ -9,7 +9,7 @@
 
 use axum::{
     body::Bytes,
-    extract::{ConnectInfo, State, Json},
+    extract::{ConnectInfo, Json},
     http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
     routing::post,
@@ -21,13 +21,9 @@ use std::net::SocketAddr;
 /// Telegram update payload (simplified for Zero-Bloat)
 #[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
-enum TelegramUpdate {
-    Message {
-        message: serde_json::Value,
-    },
-    CallbackQuery {
-        callback_query: serde_json::Value,
-    },
+pub enum TelegramUpdate {
+    Message { message: serde_json::Value },
+    CallbackQuery { callback_query: serde_json::Value },
 }
 
 /// Webhook request body (wrapper for update_id)
@@ -56,7 +52,10 @@ pub struct WebhookConfigRequest {
 pub fn telegram_webhook_router() -> Router {
     Router::new()
         .route("/api/v1/telegram/webhook", post(handle_telegram_webhook))
-        .route("/api/v1/telegram/config/webhook", post(handle_telegram_webhook_config))
+        .route(
+            "/api/v1/telegram/config/webhook",
+            post(handle_telegram_webhook_config),
+        )
 }
 
 /// Handle Telegram webhook (POST /api/v1/telegram/webhook)
@@ -93,14 +92,17 @@ pub async fn handle_telegram_webhook(
     // ── Forward update to telegram channel for processing
     // Import the function to send webhook update
     if let Err(e) = crate::channels::telegram::send_webhook_update(update.clone()) {
-        tracing::error!("Failed to forward webhook update to telegram channel: {}", e);
+        tracing::error!(
+            "Failed to forward webhook update to telegram channel: {}",
+            e
+        );
         // Still return ok to Telegram so it doesn't retry
     } else {
         tracing::info!("✅ Webhook update forwarded to telegram channel");
     }
 
     // ── Extract update_id and type
-    let update_id = update["update_id"].as_i64().unwrap_or(0);
+    let _update_id = update["update_id"].as_i64().unwrap_or(0);
 
     // ── Route to appropriate handler
     if update["message"].is_object() {
@@ -133,7 +135,8 @@ pub async fn handle_telegram_webhook_config(
     Json(config): Json<WebhookConfigRequest>,
 ) -> impl IntoResponse {
     // ── Validate request (in production, verify auth)
-    let auth = headers.get(header::AUTHORIZATION)
+    let auth = headers
+        .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 

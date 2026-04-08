@@ -1,14 +1,36 @@
 use crate::config::{
-    // From schema.rs
-    AutonomyConfig, BrowserConfig, ChannelsConfig, ComposioConfig, Config, DiscordConfig,
-    HeartbeatConfig, IMessageConfig, LarkConfig, LarkReceiveMode, MatrixConfig, MemoryConfig,
-    ObservabilityConfig, RuntimeConfig, SecretsConfig, SlackConfig, StorageConfig, TelegramConfig,
-    WebhookConfig,
     // From schemas/llm_schema.rs
     default_nostr_relays,
     // From schema.rs
-    DingTalkConfig, IrcConfig, LinqConfig, NextcloudTalkConfig, NostrConfig, QQConfig,
-    SignalConfig, StreamMode, WhatsAppConfig,
+    AutonomyConfig,
+    BrowserConfig,
+    ChannelsConfig,
+    ComposioConfig,
+    Config,
+    // From schema.rs
+    DingTalkConfig,
+    DiscordConfig,
+    HeartbeatConfig,
+    IMessageConfig,
+    IrcConfig,
+    LarkConfig,
+    LarkReceiveMode,
+    LinqConfig,
+    MatrixConfig,
+    MemoryConfig,
+    NextcloudTalkConfig,
+    NostrConfig,
+    ObservabilityConfig,
+    QQConfig,
+    RuntimeConfig,
+    SecretsConfig,
+    SignalConfig,
+    SlackConfig,
+    StorageConfig,
+    StreamMode,
+    TelegramConfig,
+    WebhookConfig,
+    WhatsAppConfig,
 };
 use crate::hardware::{self, HardwareConfig};
 use crate::memory::{

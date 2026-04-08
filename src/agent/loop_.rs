@@ -30,7 +30,10 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 // Import from submodules
-use execution::{execute_tools_parallel, execute_tools_sequential, should_execute_tools_in_parallel, ToolExecutionOutcome};
+use execution::{
+    execute_tools_parallel, execute_tools_sequential, should_execute_tools_in_parallel,
+    ToolExecutionOutcome,
+};
 use streaming::{truncate_tool_args_for_progress, STREAM_CHUNK_MIN_CHARS};
 
 /// Default maximum agentic tool-use iterations per user message to prevent runaway loops.
@@ -54,7 +57,6 @@ const COMPACTION_MAX_SOURCE_CHARS: usize = 12_000;
 
 /// Max characters retained in stored compaction summary.
 const COMPACTION_MAX_SUMMARY_CHARS: usize = 2_000;
-
 
 /// Convert a tool registry to OpenAI function-calling format for native tool support.
 fn tools_to_openai_format(tools_registry: &[Box<dyn Tool>]) -> Vec<serde_json::Value> {

@@ -1207,7 +1207,7 @@ mod tests {
     /// ALL conversation turns and native tool definitions.
     #[tokio::test]
     async fn chat_with_tools_sends_full_history_and_native_tools() {
-        use axum::{routing::post, extract::Json, Router};
+        use axum::{extract::Json, routing::post, Router};
         use std::sync::{Arc, Mutex};
         use tokio::net::TcpListener;
 

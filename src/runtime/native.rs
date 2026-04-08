@@ -122,7 +122,10 @@ mod tests {
 
         // Verify the command is configured correctly
         let debug = format!("{cmd:?}");
-        assert!(debug.contains("echo test"), "Command should contain the test command");
+        assert!(
+            debug.contains("echo test"),
+            "Command should contain the test command"
+        );
         assert!(debug.contains("sh"), "Command should use shell");
     }
 }

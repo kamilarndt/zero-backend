@@ -1,5 +1,5 @@
-use crate::config::MemoryConfig;
 use super::cpu::CpuMonitor;
+use crate::config::MemoryConfig;
 use anyhow::Result;
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use rusqlite::{params, Connection};
@@ -251,7 +251,8 @@ fn archive_session_files(workspace_dir: &Path, archive_after_days: u32) -> Resul
     let archive_dir = sessions_dir.join("archive");
     fs::create_dir_all(&archive_dir)?;
 
-    let cutoff_date = Local::now().date_naive() - chrono::Duration::days(i64::from(archive_after_days));
+    let cutoff_date =
+        Local::now().date_naive() - chrono::Duration::days(i64::from(archive_after_days));
     let cutoff_time = SystemTime::now()
         .checked_sub(StdDuration::from_secs(
             u64::from(archive_after_days) * 24 * 60 * 60,
@@ -334,7 +335,8 @@ fn purge_session_archives(workspace_dir: &Path, purge_after_days: u32) -> Result
         return Ok(0);
     }
 
-    let cutoff_date = Local::now().date_naive() - chrono::Duration::days(i64::from(purge_after_days));
+    let cutoff_date =
+        Local::now().date_naive() - chrono::Duration::days(i64::from(purge_after_days));
     let cutoff_time = SystemTime::now()
         .checked_sub(StdDuration::from_secs(
             u64::from(purge_after_days) * 24 * 60 * 60,
@@ -381,7 +383,9 @@ fn prune_conversation_rows(workspace_dir: &Path, retention_days: u32) -> Result<
 
     let conn = Connection::open(db_path)?;
     // Use WAL so hygiene pruning doesn't block agent reads
-    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;")?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;",
+    )?;
     let cutoff = (Local::now() - chrono::Duration::days(i64::from(retention_days))).to_rfc3339();
 
     let affected = conn.execute(
@@ -655,13 +659,16 @@ mod tests {
         run_if_due_cpu_aware(&cfg, workspace).await.unwrap();
 
         // File should remain since hygiene was skipped
-        assert!(old_file.exists(), "file should remain when hygiene is skipped");
+        assert!(
+            old_file.exists(),
+            "file should remain when hygiene is skipped"
+        );
     }
 }
 
 // Proactive memory hygiene loop for intent classification
-use tokio_util::sync::CancellationToken;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct HygieneRecord {
@@ -681,14 +688,14 @@ pub async fn hygiene_loop(
                 // Scan for records that need classification
                 // Note: This is a simplified implementation - actual implementation
                 // would need to track which records have been classified
-                
+
                 tracing::info!("Running memory hygiene - checking for unclassified records");
-                
+
                 // In a real implementation, this would:
                 // 1. Query for records without classification metadata
                 // 2. Send them to Ollama for classification
                 // 3. Update the records with the classification
-                
+
                 // For now, we'll log that hygiene ran
                 tracing::info!("Memory hygiene cycle complete");
             }
@@ -709,10 +716,10 @@ mod hygiene_loop_tests {
     async fn hygiene_loop_respects_cancellation() {
         // Create a cancellation token
         let shutdown = CancellationToken::new();
-        
+
         // Cancel immediately
         shutdown.cancel();
-        
+
         // This should exit immediately
         let result = hygiene_loop(
             Arc::new(crate::memory::none::NoneMemory::new()) as Arc<dyn super::super::Memory>,
@@ -721,8 +728,9 @@ mod hygiene_loop_tests {
                 None,
             )),
             shutdown,
-        ).await;
-        
+        )
+        .await;
+
         // Should complete without error
         assert!(result.is_ok());
     }

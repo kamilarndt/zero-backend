@@ -3,11 +3,11 @@
 //! Monitors API usage and syncs with Z.AI API for rate limit awareness.
 //! Runs background tasks to fetch usage statistics periodically.
 
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 /// Configuration for usage monitoring
 #[derive(Debug, Clone)]
@@ -153,7 +153,9 @@ impl UsageMonitor {
     /// Fetch current usage from Z.AI API
     pub async fn fetch_usage(&self) -> Result<UsageStats, UsageMonitorError> {
         // Check if API key is configured
-        let api_key = self.config.api_key
+        let api_key = self
+            .config
+            .api_key
             .as_ref()
             .ok_or(UsageMonitorError::NoApiKey)?;
 
@@ -187,9 +189,10 @@ impl UsageMonitor {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(UsageMonitorError::RequestFailed(
-                format!("HTTP {}: {}", status, body)
-            ));
+            return Err(UsageMonitorError::RequestFailed(format!(
+                "HTTP {}: {}",
+                status, body
+            )));
         }
 
         // Parse response
@@ -299,10 +302,10 @@ impl UsageMonitor {
                         Ok(usage) => {
                             let mut current_stats = stats.lock().await;
                             *current_stats = Some(usage);
-                        },
+                        }
                         Err(e) => {
                             eprintln!("Usage sync error: {}", e);
-                        },
+                        }
                     }
                 }
             }
@@ -439,13 +442,9 @@ mod tests {
         let config = UsageSyncConfig::default();
         let monitor = UsageMonitor::new(config);
 
-        monitor.update_provider_usage(
-            "provider1".to_string(),
-            10,
-            1000,
-            100,
-            (0.1, 0.2, 0.3),
-        ).await;
+        monitor
+            .update_provider_usage("provider1".to_string(), 10, 1000, 100, (0.1, 0.2, 0.3))
+            .await;
 
         let usage = monitor.get_provider_usage("provider1").await;
         assert!(usage.is_some());
@@ -462,21 +461,13 @@ mod tests {
         let config = UsageSyncConfig::default();
         let monitor = UsageMonitor::new(config);
 
-        monitor.update_provider_usage(
-            "provider1".to_string(),
-            10,
-            1000,
-            100,
-            (0.1, 0.2, 0.3),
-        ).await;
+        monitor
+            .update_provider_usage("provider1".to_string(), 10, 1000, 100, (0.1, 0.2, 0.3))
+            .await;
 
-        monitor.update_provider_usage(
-            "provider2".to_string(),
-            20,
-            2000,
-            200,
-            (0.2, 0.4, 0.6),
-        ).await;
+        monitor
+            .update_provider_usage("provider2".to_string(), 20, 2000, 200, (0.2, 0.4, 0.6))
+            .await;
 
         let all_usage = monitor.get_all_provider_usage().await;
         assert_eq!(all_usage.len(), 2);

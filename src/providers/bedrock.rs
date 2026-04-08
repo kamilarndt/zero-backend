@@ -935,7 +935,7 @@ impl BedrockProvider {
         let payload_clone = payload.to_vec();
         // Move 'now' into the closure as well
         let now_val = now;
-        
+
         let authorization = tokio::task::spawn_blocking(move || {
             build_authorization_header(
                 &creds_clone,

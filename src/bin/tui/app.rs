@@ -275,7 +275,12 @@ impl AppState {
 
     /// Scroll chat up
     pub fn scroll_up(&mut self) {
-        if self.chat_scroll < self.current_session().map(|s| s.messages.len()).unwrap_or(0) {
+        if self.chat_scroll
+            < self
+                .current_session()
+                .map(|s| s.messages.len())
+                .unwrap_or(0)
+        {
             self.chat_scroll = self.chat_scroll.saturating_add(1);
         }
     }
@@ -296,9 +301,7 @@ impl AppState {
                 self.should_quit = true;
                 ("Quitting...".to_string(), true)
             }
-            Some(&"h") | Some(&"help") => {
-                (get_help_text().to_string(), true)
-            }
+            Some(&"h") | Some(&"help") => (get_help_text().to_string(), true),
             Some(&"test") => {
                 // Run diagnostic test
                 let output = run_tui_diagnostic();
@@ -307,7 +310,10 @@ impl AppState {
             }
             Some(&"new") | Some(&"n") => {
                 self.new_session();
-                (format!("Created: {}", self.current_session().unwrap().name), true)
+                (
+                    format!("Created: {}", self.current_session().unwrap().name),
+                    true,
+                )
             }
             Some(&"close") | Some(&"c") => {
                 self.close_session();
@@ -320,12 +326,11 @@ impl AppState {
                 }
                 ("Session cleared".to_string(), true)
             }
-            Some(unknown) => {
-                (format!("Unknown command: {}. Type :help for commands.", unknown), false)
-            }
-            None => {
-                ("".to_string(), false)
-            }
+            Some(unknown) => (
+                format!("Unknown command: {}. Type :help for commands.", unknown),
+                false,
+            ),
+            None => ("".to_string(), false),
         }
     }
 

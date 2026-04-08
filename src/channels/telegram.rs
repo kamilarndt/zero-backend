@@ -1,7 +1,6 @@
+use super::telegram_circuit_breaker::CircuitBreaker;
+use super::telegram_inline_keyboard::InlineKeyboard;
 use super::traits::{Channel, ChannelMessage, SendMessage};
-use super::telegram_inline_keyboard::{InlineKeyboard, InlineKeyboardButton, CallbackQuery, CallbackQueryMessage, CallbackAnswer};
-use super::telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
-use super::telegram_menu_button::{MenuButtonConfig};
 use crate::config::{Config, StreamMode};
 use crate::security::pairing::PairingGuard;
 use anyhow::Context;
@@ -10,14 +9,16 @@ use directories::UserDirs;
 use parking_lot::Mutex;
 use reqwest::multipart::{Form, Part};
 use std::path::Path;
+use std::sync::OnceLock;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::fs;
 use tokio::sync::mpsc;
-use std::sync::OnceLock;
 
 // TMA Hub thread integration
-use crate::gateway::telegram_threads::{get_thread_id_for_telegram_chat, get_skills_for_telegram_chat};
+use crate::gateway::telegram_threads::{
+    get_skills_for_telegram_chat, get_thread_id_for_telegram_chat,
+};
 
 /// Telegram's maximum message length for text messages
 const TELEGRAM_MAX_MESSAGE_LENGTH: usize = 4096;
@@ -62,7 +63,8 @@ fn init_webhook_receiver() -> WebhookUpdateSender {
 
 /// Send a webhook update to the telegram channel
 pub fn send_webhook_update(update: serde_json::Value) -> anyhow::Result<()> {
-    let tx = WEBHOOK_RECEIVER.get()
+    let tx = WEBHOOK_RECEIVER
+        .get()
         .ok_or_else(|| anyhow::anyhow!("Webhook receiver not initialized"))?;
     tx.send(update)
         .map_err(|e| anyhow::anyhow!("Failed to send webhook update: {}", e))
@@ -306,11 +308,11 @@ fn parse_path_only_attachment(message: &str) -> Option<TelegramAttachment> {
 /// Removes <tool>...</tool>, <toolcall>...</toolcall>, and other tool-related tags.
 pub fn strip_tool_call_tags(message: &str) -> String {
     let mut result = message.to_string();
-    let patterns = [
+    let _patterns = [
         ("<tool>", "</tool>"),
         ("<toolcall>", "</toolcall>"),
         ("<invoke>", "</invoke>"),
-        ("</tool:name>", ""),  // Handle closing tags separately
+        ("</tool:name>", ""), // Handle closing tags separately
     ];
 
     // Remove content between <tool>...</tool> tags
@@ -2611,7 +2613,10 @@ impl Channel for TelegramChannel {
 
 /// Webhook mode: Consume updates from the global webhook receiver
 impl TelegramChannel {
-    async fn listen_webhook(&self, tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
+    async fn listen_webhook(
+        &self,
+        tx: tokio::sync::mpsc::Sender<ChannelMessage>,
+    ) -> anyhow::Result<()> {
         tracing::info!("📨 Telegram webhook receiver started");
 
         // Get the webhook receiver side of the global channel
@@ -2645,9 +2650,17 @@ impl TelegramChannel {
 
             // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
             // Extract chat_id from reply_target (format: "chat_id" or "chat_id:thread_id")
-            let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
+            let chat_id_for_thread = msg
+                .reply_target
+                .split(':')
+                .next()
+                .unwrap_or(&msg.reply_target);
             if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
-                tracing::info!("📌 TMA Hub: Using thread {} for chat {}", tma_thread_id, chat_id_for_thread);
+                tracing::info!(
+                    "📌 TMA Hub: Using thread {} for chat {}",
+                    tma_thread_id,
+                    chat_id_for_thread
+                );
                 msg.thread_ts = Some(tma_thread_id.clone());
 
                 // Fetch enabled skills for this thread
@@ -2661,10 +2674,7 @@ impl TelegramChannel {
             if let Some((reaction_chat_id, reaction_message_id)) =
                 Self::extract_update_message_target(&update)
             {
-                self.try_add_ack_reaction_nonblocking(
-                    reaction_chat_id,
-                    reaction_message_id,
-                );
+                self.try_add_ack_reaction_nonblocking(reaction_chat_id, reaction_message_id);
             }
 
             // Send "typing" indicator
@@ -2689,7 +2699,10 @@ impl TelegramChannel {
     }
 
     /// Polling mode: Traditional long-polling for updates
-    async fn listen_polling(&self, tx: tokio::sync::mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
+    async fn listen_polling(
+        &self,
+        tx: tokio::sync::mpsc::Sender<ChannelMessage>,
+    ) -> anyhow::Result<()> {
         let mut offset: i64 = 0;
 
         tracing::info!("Telegram channel listening for messages...");
@@ -2856,9 +2869,19 @@ Ensure only one `zeroclaw` process is using this bot token."
 
                     // 🔄 TMA HUB INTEGRATION: Look up TMA Hub thread for this chat
                     let mut msg = msg;
-                    let chat_id_for_thread = msg.reply_target.split(':').next().unwrap_or(&msg.reply_target);
-                    if let Some(tma_thread_id) = get_thread_id_for_telegram_chat(chat_id_for_thread).await {
-                        tracing::info!("📌 TMA Hub: Using thread {} for chat {}", tma_thread_id, chat_id_for_thread);
+                    let chat_id_for_thread = msg
+                        .reply_target
+                        .split(':')
+                        .next()
+                        .unwrap_or(&msg.reply_target);
+                    if let Some(tma_thread_id) =
+                        get_thread_id_for_telegram_chat(chat_id_for_thread).await
+                    {
+                        tracing::info!(
+                            "📌 TMA Hub: Using thread {} for chat {}",
+                            tma_thread_id,
+                            chat_id_for_thread
+                        );
                         msg.thread_ts = Some(tma_thread_id.clone());
 
                         // Fetch enabled skills for this thread
@@ -2977,14 +3000,18 @@ impl TelegramChannel {
                 "max_connections": 100,
             });
 
-            let resp = self.http_client()
+            let resp = self
+                .http_client()
                 .post(self.api_url("setWebhook"))
                 .json(&body)
                 .send()
                 .await?;
 
             if !resp.status().is_success() {
-                let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                let error_text = resp
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
                 anyhow::bail!("Failed to set webhook: {}", error_text);
             }
 
@@ -2997,7 +3024,8 @@ impl TelegramChannel {
     }
 
     pub async fn delete_webhook(&self) -> anyhow::Result<()> {
-        let resp = self.http_client()
+        let resp = self
+            .http_client()
             .post(self.api_url("deleteWebhook"))
             .send()
             .await?;
@@ -3011,8 +3039,8 @@ impl TelegramChannel {
     }
 
     pub fn webhook_secret(&self) -> String {
-        use sha2::{Sha256, Digest};
         use chrono::Utc;
+        use sha2::{Digest, Sha256};
 
         let timestamp = Utc::now().timestamp();
         let mut hasher = Sha256::new();
@@ -3036,20 +3064,24 @@ impl TelegramChannel {
     // ============================================================
 
     /// Verify Telegram WebApp initData for secure authentication
-    pub fn verify_webapp_initdata(&self, init_data: &str) -> anyhow::Result<TelegramWebAppInitData> {
-        use std::collections::HashMap;
-        use serde_urlencoded::from_str;
+    pub fn verify_webapp_initdata(
+        &self,
+        init_data: &str,
+    ) -> anyhow::Result<TelegramWebAppInitData> {
         use hmac::{Hmac, Mac};
+        use serde_urlencoded::from_str;
         use sha2::Sha256;
+        use std::collections::HashMap;
 
         type HmacSha256 = Hmac<Sha256>;
 
         // Parse URL-encoded initData
-        let params: HashMap<String, String> = from_str(init_data)
-            .map_err(|e| anyhow::anyhow!("Failed to parse initData: {}", e))?;
+        let params: HashMap<String, String> =
+            from_str(init_data).map_err(|e| anyhow::anyhow!("Failed to parse initData: {}", e))?;
 
         // Extract hash
-        let hash = params.get("hash")
+        let hash = params
+            .get("hash")
             .ok_or_else(|| anyhow::anyhow!("Missing hash parameter"))?;
 
         // Create data check string
@@ -3086,7 +3118,8 @@ impl TelegramChannel {
         }
 
         // Parse user
-        let user_json = params.get("user")
+        let user_json = params
+            .get("user")
             .ok_or_else(|| anyhow::anyhow!("Missing user parameter"))?;
 
         let user: TelegramWebAppUser = serde_json::from_str(user_json)
@@ -3095,18 +3128,20 @@ impl TelegramChannel {
         Ok(TelegramWebAppInitData {
             query_id: params.get("query_id").cloned(),
             user: Some(user),
-            auth_date: params.get("auth_date").and_then(|d| d.parse().ok()).unwrap_or(0),
+            auth_date: params
+                .get("auth_date")
+                .and_then(|d| d.parse().ok())
+                .unwrap_or(0),
             hash: hash.clone(),
         })
     }
 
     pub fn create_data_check_string(params: &std::collections::HashMap<String, String>) -> String {
-        let mut sorted: Vec<_> = params.iter()
-            .filter(|(k, _)| *k != "hash")
-            .collect();
+        let mut sorted: Vec<_> = params.iter().filter(|(k, _)| *k != "hash").collect();
         sorted.sort_by_key(|(k, _)| *k);
 
-        sorted.iter()
+        sorted
+            .iter()
             .map(|(k, v)| format!("{}={}", k, v))
             .collect::<Vec<_>>()
             .join("\n")

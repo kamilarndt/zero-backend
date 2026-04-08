@@ -1,6 +1,6 @@
 // Security subsystem configuration
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 // ── Security Config ─────────────────────────────────────────────────
 

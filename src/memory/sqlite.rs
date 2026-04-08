@@ -201,7 +201,9 @@ impl SqliteMemory {
 
         // Migration: add telegram_sessions table if not present (Zero-Bloat TMA)
         let has_telegram_sessions: bool = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='telegram_sessions'")?
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='telegram_sessions'",
+            )?
             .query_row([], |row| row.get::<_, String>(0))
             .is_ok();
         if !has_telegram_sessions {
@@ -301,7 +303,7 @@ impl SqliteMemory {
 
         // Store in cache + LRU eviction (offloaded to blocking thread)
         let conn = self.conn.clone();
-        let text_owned2 = text.to_string();  // Convert to String, not &str
+        let text_owned2 = text.to_string(); // Convert to String, not &str
         #[allow(clippy::cast_possible_wrap)]
         let cache_max = self.cache_max as i64;
         let now_clone = now.clone();
@@ -508,7 +510,8 @@ impl SqliteMemory {
                  LIMIT ?3 OFFSET ?4",
             )?;
 
-            let rows = stmt.query_map(params![session_id, category_str, limit, offset], row_mapper)?;
+            let rows =
+                stmt.query_map(params![session_id, category_str, limit, offset], row_mapper)?;
             let results = rows.filter_map(std::result::Result::ok).collect();
 
             Ok(results)

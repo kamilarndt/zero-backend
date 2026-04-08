@@ -140,9 +140,7 @@ impl DefaultToolRegistry {
 #[allow(dead_code)]
 pub fn collect_tool_factories() -> Vec<&'static ToolFactory> {
     // Collect into Vec first since inventory::iter returns a custom iterator
-    inventory::iter::<ToolFactory>
-        .into_iter()
-        .collect()
+    inventory::iter::<ToolFactory>.into_iter().collect()
 }
 
 /// Create a registry from all globally registered tools
@@ -162,7 +160,9 @@ pub fn create_global_registry() -> DefaultToolRegistry {
                 // SAFETY: The factory function comes from static inventory and lives for 'static
                 // We extend the lifetime to allow moving into the closure
                 let factory_fn: &'static Box<ToolFactoryFn> = unsafe {
-                    std::mem::transmute_copy::<&Box<ToolFactoryFn>, &'static Box<ToolFactoryFn>>(&factory_fn)
+                    std::mem::transmute_copy::<&Box<ToolFactoryFn>, &'static Box<ToolFactoryFn>>(
+                        &factory_fn,
+                    )
                 };
                 move |security| (factory_fn)(security)
             }),

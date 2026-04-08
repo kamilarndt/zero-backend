@@ -13,19 +13,18 @@ pub mod http;
 pub mod shutdown;
 pub mod subsystems;
 
-pub use channels::{TuiStateChannels, StateSnapshot};
+pub use channels::{StateSnapshot, TuiStateChannels};
 pub use subsystems::{
-    SwarmSnapshot, CostSnapshot, MemorySnapshot, LogsSnapshot,
-    swarm_update_task, cost_update_task, memory_update_task, logs_update_task,
-    LogLevel, MemoryOpType, MemoryOperation,
+    cost_update_task, logs_update_task, memory_update_task, swarm_update_task, CostSnapshot,
+    LogLevel, LogsSnapshot, MemoryOpType, MemoryOperation, MemorySnapshot, SwarmSnapshot,
 };
 
-use std::sync::Arc;
-use parking_lot::Mutex;
+use crate::state::subsystems::{AgentInfo, AgentStatus as SubAgentStatus};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
-use crate::state::subsystems::{AgentInfo, AgentStatus as SubAgentStatus};
+use std::sync::Arc;
 
 /// Available agent types for routing
 pub const DEFAULT_AGENTS: &[&str] = &["coder", "planner", "vision", "fast", "siyuan-master"];
@@ -65,9 +64,9 @@ pub struct AppState {
 /// Input modes for the TUI
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputMode {
-    Normal,    // Command mode
-    Insert,    // Typing messages
-    Command,   // Command mode (:q, :help, etc.)
+    Normal,  // Command mode
+    Insert,  // Typing messages
+    Command, // Command mode (:q, :help, etc.)
 }
 
 /// Controls which panels are visible
@@ -184,7 +183,8 @@ impl AppState {
     /// Cycle to next agent
     pub fn next_agent(&mut self) {
         if !self.available_agents.is_empty() {
-            self.selected_agent_index = (self.selected_agent_index + 1) % self.available_agents.len();
+            self.selected_agent_index =
+                (self.selected_agent_index + 1) % self.available_agents.len();
         }
     }
 
@@ -299,7 +299,12 @@ impl AppState {
 
     /// Scroll chat up
     pub fn scroll_up(&mut self) {
-        if self.chat_scroll < self.current_session().map(|s| s.messages.len()).unwrap_or(0) {
+        if self.chat_scroll
+            < self
+                .current_session()
+                .map(|s| s.messages.len())
+                .unwrap_or(0)
+        {
             self.chat_scroll = self.chat_scroll.saturating_add(1);
         }
     }
@@ -320,9 +325,10 @@ impl AppState {
                 self.should_quit = true;
                 ("Quitting...".to_string(), true)
             }
-            Some(&"h") | Some(&"help") => {
-                ("Showing help. Press '?' to see key bindings.".to_string(), false)
-            }
+            Some(&"h") | Some(&"help") => (
+                "Showing help. Press '?' to see key bindings.".to_string(),
+                false,
+            ),
             Some(&"new") => {
                 self.new_session();
                 ("New session created.".to_string(), true)
@@ -337,9 +343,7 @@ impl AppState {
                 let output = run_tui_diagnostic();
                 (output, true)
             }
-            _ => {
-                (format!("Unknown command: {}", command), false)
-            }
+            _ => (format!("Unknown command: {}", command), false),
         }
     }
 }
@@ -702,7 +706,8 @@ impl LogPanel {
                 module: Some("provider::openai".to_string()),
                 timestamp: now - chrono::Duration::seconds(30),
             },
-        ].into();
+        ]
+        .into();
     }
 }
 

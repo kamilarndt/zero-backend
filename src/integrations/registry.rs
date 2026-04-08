@@ -737,8 +737,8 @@ pub fn all_integrations() -> Vec<IntegrationEntry> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{IMessageConfig, MatrixConfig, StreamMode, TelegramConfig};
     use crate::config::Config;
+    use crate::config::{IMessageConfig, MatrixConfig, StreamMode, TelegramConfig};
 
     #[test]
     fn registry_has_entries() {

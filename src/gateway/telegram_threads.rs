@@ -2,7 +2,7 @@
 // Thread management for Telegram TMA integration
 
 use axum::{
-    extract::{Path, State, Json},
+    extract::{Json, Path},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post, put},
@@ -25,8 +25,13 @@ pub async fn get_skills_for_telegram_chat(chat_id: &str) -> Vec<String> {
 }
 
 /// Associate a Telegram chat with a thread (public API for telegram channel)
-pub async fn associate_telegram_chat_with_thread(chat_id: &str, thread_id: &str) -> anyhow::Result<()> {
-    global_db().associate_chat_with_thread(chat_id, thread_id).await
+pub async fn associate_telegram_chat_with_thread(
+    chat_id: &str,
+    thread_id: &str,
+) -> anyhow::Result<()> {
+    global_db()
+        .associate_chat_with_thread(chat_id, thread_id)
+        .await
 }
 
 /// Get the active thread ID for a Telegram chat (public API for telegram channel)
@@ -110,10 +115,13 @@ pub async fn get_available_skills() -> impl IntoResponse {
         },
     ];
 
-    (StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "data": skills
-    })))
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": skills
+        })),
+    )
 }
 
 /// Create Telegram threads router
@@ -167,9 +175,7 @@ pub async fn get_threads() -> impl IntoResponse {
 }
 
 /// Create a new thread
-pub async fn create_thread(
-    Json(payload): Json<CreateThreadRequest>,
-) -> impl IntoResponse {
+pub async fn create_thread(Json(payload): Json<CreateThreadRequest>) -> impl IntoResponse {
     // TODO: Extract user_id from JWT token in headers
     let db = global_db();
 
@@ -266,12 +272,13 @@ pub async fn update_thread_skills(
 }
 
 /// Set the active thread
-pub async fn set_active_thread(
-    Json(payload): Json<SetActiveThreadRequest>,
-) -> impl IntoResponse {
+pub async fn set_active_thread(Json(payload): Json<SetActiveThreadRequest>) -> impl IntoResponse {
     let db = global_db();
 
-    match db.set_active_thread("user_placeholder", &payload.thread_id).await {
+    match db
+        .set_active_thread("user_placeholder", &payload.thread_id)
+        .await
+    {
         Ok(_) => {
             // Fetch and return updated threads
             match db.get_threads_for_user("user_placeholder").await {
@@ -355,15 +362,25 @@ impl DbAdapter {
     pub async fn get_threads_for_user(&self, _user_id: &str) -> anyhow::Result<Vec<Thread>> {
         let threads = self.threads.lock().unwrap();
         let active = self.active_thread.lock().unwrap();
-        Ok(threads.values().cloned().map(|mut t| {
-            t.is_active = active.as_ref() == Some(&t.id);
-            t
-        }).collect())
+        Ok(threads
+            .values()
+            .cloned()
+            .map(|mut t| {
+                t.is_active = active.as_ref() == Some(&t.id);
+                t
+            })
+            .collect())
     }
 
     pub async fn create_thread(&self, _user_id: &str, title: &str) -> anyhow::Result<String> {
-        let thread_id = format!("thread_{}", SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis());
-        let now = format!("{:?}", SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
+        let thread_id = format!(
+            "thread_{}",
+            SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis()
+        );
+        let now = format!(
+            "{:?}",
+            SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+        );
 
         let thread = Thread {
             id: thread_id.clone(),
@@ -374,15 +391,25 @@ impl DbAdapter {
             active_skills: vec![],
         };
 
-        self.threads.lock().unwrap().insert(thread_id.clone(), thread);
+        self.threads
+            .lock()
+            .unwrap()
+            .insert(thread_id.clone(), thread);
         Ok(thread_id)
     }
 
-    pub async fn set_thread_skills(&self, thread_id: &str, skills: &[String]) -> anyhow::Result<bool> {
+    pub async fn set_thread_skills(
+        &self,
+        thread_id: &str,
+        skills: &[String],
+    ) -> anyhow::Result<bool> {
         let mut threads = self.threads.lock().unwrap();
         if let Some(thread) = threads.get_mut(thread_id) {
             thread.active_skills = skills.to_vec();
-            let now = format!("{:?}", SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs());
+            let now = format!(
+                "{:?}",
+                SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs()
+            );
             thread.updated_at = Some(now);
             Ok(true)
         } else {
@@ -397,7 +424,11 @@ impl DbAdapter {
     }
 
     /// Associate a Telegram chat_id with a thread_id
-    pub async fn associate_chat_with_thread(&self, chat_id: &str, thread_id: &str) -> anyhow::Result<()> {
+    pub async fn associate_chat_with_thread(
+        &self,
+        chat_id: &str,
+        thread_id: &str,
+    ) -> anyhow::Result<()> {
         let mut chat_to_thread = self.chat_to_thread.lock().unwrap();
         chat_to_thread.insert(chat_id.to_string(), thread_id.to_string());
         Ok(())
@@ -412,7 +443,10 @@ impl DbAdapter {
     /// Get the skills enabled for a thread
     pub async fn get_skills_for_thread(&self, thread_id: &str) -> Vec<String> {
         let threads = self.threads.lock().unwrap();
-        threads.get(thread_id).map(|t| t.active_skills.clone()).unwrap_or_default()
+        threads
+            .get(thread_id)
+            .map(|t| t.active_skills.clone())
+            .unwrap_or_default()
     }
 
     /// Get the skills enabled for a Telegram chat (via thread association)
@@ -425,9 +459,14 @@ impl DbAdapter {
     }
 
     /// Set the active thread for a specific chat (for TMA Hub integration)
-    pub async fn set_active_thread_for_chat(&self, chat_id: &str, thread_id: &str) -> anyhow::Result<()> {
+    pub async fn set_active_thread_for_chat(
+        &self,
+        chat_id: &str,
+        thread_id: &str,
+    ) -> anyhow::Result<()> {
         // First set as the global active thread
-        self.set_active_thread("user_placeholder", thread_id).await?;
+        self.set_active_thread("user_placeholder", thread_id)
+            .await?;
         // Then associate the chat with this thread
         self.associate_chat_with_thread(chat_id, thread_id).await?;
         Ok(())

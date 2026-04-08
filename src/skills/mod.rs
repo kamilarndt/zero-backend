@@ -10,13 +10,13 @@ mod audit;
 
 // New v2.0 skills modules
 pub mod engine;
-pub mod loader;
 pub mod evaluator;
+pub mod loader;
 
 // Re-export main types for convenience
-pub use engine::{SkillsEngine, Skill, SkillSearchResult, SkillsConfig};
-pub use loader::{SkillLoader, VectorSkillLoader};
-pub use evaluator::{SkillEvaluator, EvalResult, EvalType};
+pub use engine::{Skill, SkillsEngine};
+pub use evaluator::SkillEvaluator;
+pub use loader::VectorSkillLoader;
 
 const OPEN_SKILLS_REPO_URL: &str = "https://github.com/besoeasy/open-skills";
 const OPEN_SKILLS_SYNC_MARKER: &str = ".zeroclaw-open-skills-sync";
@@ -397,7 +397,10 @@ fn load_skill_toml(path: &Path) -> Result<Skill> {
 
     // Combine prompts into a single content string
     let skill_content = if manifest.prompts.is_empty() {
-        format!("# {}\n\n{}", manifest.skill.name, manifest.skill.description)
+        format!(
+            "# {}\n\n{}",
+            manifest.skill.name, manifest.skill.description
+        )
     } else {
         manifest.prompts.join("\n\n")
     };

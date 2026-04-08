@@ -11,7 +11,7 @@ use crate::runtime;
 use crate::security::SecurityPolicy;
 use crate::tools::{self, Tool, ToolSpec};
 use anyhow::Result;
-use futures_util::{stream, StreamExt};
+use futures_util::stream;
 use std::collections::HashMap;
 use std::io::Write as IoWrite;
 use std::sync::Arc;
@@ -607,18 +607,28 @@ impl Agent {
     pub fn turn_streaming(
         &mut self,
         request: crate::agent::AgentTurnRequest,
-    ) -> std::pin::Pin<Box<dyn futures_util::Stream<Item = anyhow::Result<crate::agent::AgentStreamChunk>> + Send + 'static>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures_util::Stream<Item = anyhow::Result<crate::agent::AgentStreamChunk>>
+                + Send
+                + 'static,
+        >,
+    > {
         use crate::agent::AgentStreamChunk;
 
         // Extract user message from request
-        let user_message = request.messages.iter()
+        let _user_message = request
+            .messages
+            .iter()
             .filter(|m| m.role == "user")
             .last()
             .map(|m| m.content.as_str())
             .unwrap_or("");
 
         // Build a simple prompt from all messages for context
-        let full_prompt = request.messages.iter()
+        let _full_prompt = request
+            .messages
+            .iter()
             .map(|m| format!("{}: {}\n", m.role, m.content))
             .collect::<String>();
 
@@ -626,7 +636,8 @@ impl Agent {
         // Return a stream that will process synchronously.
         // The caller (openai_compat.rs) will handle actual async execution.
 
-        let model = request.model
+        let model = request
+            .model
             .clone()
             .unwrap_or_else(|| self.model_name.clone());
 
@@ -635,12 +646,11 @@ impl Agent {
         let chunks = vec![
             Ok(AgentStreamChunk::Text(format!(
                 "[ZeroClaw: Model={}, Tools={}, Memory={}]",
-                model,
-                request.enable_tools,
-                request.enable_memory
+                model, request.enable_tools, request.enable_memory
             ))),
             Ok(AgentStreamChunk::Text(
-                " OpenAI compatibility active. Full tool execution via Agent::turn() in handler.".to_string()
+                " OpenAI compatibility active. Full tool execution via Agent::turn() in handler."
+                    .to_string(),
             )),
             Ok(AgentStreamChunk::Done),
         ];
@@ -652,8 +662,12 @@ impl Agent {
 
     /// Route request to appropriate provider/model based on hints.
     /// For now, simple routing using existing provider.
-    fn route_provider_for_streaming(&self, request: &crate::agent::AgentTurnRequest) -> (String, f64) {
-        let model = request.model
+    fn route_provider_for_streaming(
+        &self,
+        request: &crate::agent::AgentTurnRequest,
+    ) -> (String, f64) {
+        let model = request
+            .model
             .clone()
             .or_else(|| Some(self.model_name.clone()))
             .unwrap_or_else(|| "glm-4.7".to_string());
@@ -673,7 +687,10 @@ impl Agent {
 
     /// Parse tool calls from provider response.
     /// Placeholder for now - tools parsing in future enhancement.
-    fn parse_tool_calls_from_response(&self, _response: &str) -> Vec<crate::agent::dispatcher::ParsedToolCall> {
+    fn parse_tool_calls_from_response(
+        &self,
+        _response: &str,
+    ) -> Vec<crate::agent::dispatcher::ParsedToolCall> {
         // For now, return empty - tools parsing in future enhancement
         Vec::new()
     }

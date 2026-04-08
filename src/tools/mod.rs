@@ -20,7 +20,6 @@ pub mod browser_open;
 pub mod cli_discovery;
 pub mod composio;
 pub mod content_search;
-pub mod emit_event;
 pub mod cron_add;
 pub mod cron_list;
 pub mod cron_remove;
@@ -28,6 +27,7 @@ pub mod cron_run;
 pub mod cron_runs;
 pub mod cron_update;
 pub mod delegate;
+pub mod emit_event;
 pub mod file_edit;
 pub mod file_read;
 pub mod file_write;
@@ -47,27 +47,26 @@ pub mod memory_store;
 pub mod model_routing_config;
 pub mod pdf_read;
 pub mod proxy_config;
-pub mod task_plan;
-pub mod update_dashboard_widget;
 pub mod pushover;
 pub mod schedule;
 pub mod schema;
 pub mod screenshot;
 pub mod shell;
+pub mod subagent_spawn;
+pub mod task_plan;
 pub mod traits;
+pub mod update_dashboard_widget;
 pub mod web_fetch;
 pub mod web_search_tool;
-pub mod subagent_spawn;
 
 // New registry system
+pub mod macros;
 pub mod registry;
 pub mod schema_builder;
-pub mod macros;
 
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
 pub use composio::ComposioTool;
-pub use emit_event::EmitEventTool;
 pub use content_search::ContentSearchTool;
 pub use cron_add::CronAddTool;
 pub use cron_list::CronListTool;
@@ -76,6 +75,7 @@ pub use cron_run::CronRunTool;
 pub use cron_runs::CronRunsTool;
 pub use cron_update::CronUpdateTool;
 pub use delegate::DelegateTool;
+pub use emit_event::EmitEventTool;
 pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
@@ -96,19 +96,19 @@ pub use model_routing_config::ModelRoutingConfigTool;
 pub use pdf_read::PdfReadTool;
 pub use proxy_config::ProxyConfigTool;
 pub use pushover::PushoverTool;
-pub use task_plan::TaskPlanTool;
-pub use update_dashboard_widget::UpdateDashboardWidgetTool;
 pub use schedule::ScheduleTool;
 #[allow(unused_imports)]
 pub use schema::{CleaningStrategy, SchemaCleanr};
 pub use screenshot::ScreenshotTool;
 pub use shell::ShellTool;
+pub use subagent_spawn::SubagentSpawnTool;
+pub use task_plan::TaskPlanTool;
 pub use traits::Tool;
 #[allow(unused_imports)]
 pub use traits::{ToolResult, ToolSpec};
+pub use update_dashboard_widget::UpdateDashboardWidgetTool;
 pub use web_fetch::WebFetchTool;
 pub use web_search_tool::WebSearchTool;
-pub use subagent_spawn::SubagentSpawnTool;
 
 // New registry exports
 // Note: These are available but unused in this module; consumers can import directly from submodules if needed
@@ -270,7 +270,6 @@ pub fn all_tools_with_runtime(
     if let Some(sqlite_mem) = memory.as_any().downcast_ref::<SqliteMemory>() {
         tool_arcs.push(Arc::new(TaskPlanTool::new(sqlite_mem.connection())));
     }
-
 
     if browser_config.enabled {
         // Add legacy browser_open tool for simple URL opening

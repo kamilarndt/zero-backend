@@ -149,10 +149,7 @@ impl A2AMessageType {
                 Ok(())
             }
 
-            A2AMessageType::ClarificationRequest {
-                task_id,
-                question,
-            } => {
+            A2AMessageType::ClarificationRequest { task_id, question } => {
                 if task_id.trim().is_empty() {
                     return Err("task_id cannot be empty".to_string());
                 }
@@ -181,11 +178,7 @@ pub struct A2APacket {
 
 impl A2APacket {
     /// Creates a new A2APacket with current timestamp
-    pub fn new(
-        source_id: String,
-        target_id: String,
-        message: A2AMessageType,
-    ) -> Self {
+    pub fn new(source_id: String, target_id: String, message: A2AMessageType) -> Self {
         Self {
             source_id,
             target_id,
@@ -360,8 +353,7 @@ impl A2AHelper {
     pub fn is_request(message: &A2AMessageType) -> bool {
         matches!(
             message,
-            A2AMessageType::TaskAssignment { .. }
-                | A2AMessageType::ClarificationRequest { .. }
+            A2AMessageType::TaskAssignment { .. } | A2AMessageType::ClarificationRequest { .. }
         )
     }
 
@@ -536,12 +528,8 @@ mod tests {
     #[test]
     fn test_packet_summary() {
         let msg = A2AMessageBuilder::task_assignment("t1", "test", vec![]);
-        let packet = A2APacket::with_timestamp(
-            "agent1".to_string(),
-            "agent2".to_string(),
-            12345,
-            msg,
-        );
+        let packet =
+            A2APacket::with_timestamp("agent1".to_string(), "agent2".to_string(), 12345, msg);
 
         let summary = packet.summary();
         assert!(summary.contains("agent1"));

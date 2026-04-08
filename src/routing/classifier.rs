@@ -1,7 +1,7 @@
 // Task Classifier for ZeroClaw Routing System
 // Implements 4-gate pipeline for intelligent task classification
 
-use crate::config::schemas::{QueryClassificationConfig, ClassificationRule};
+use crate::config::schemas::QueryClassificationConfig;
 use regex::Regex;
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -59,7 +59,12 @@ pub struct ClassificationResult {
 
 impl ClassificationResult {
     /// Create a new classification result
-    pub fn new(task_type: TaskType, model: String, estimated_tokens: usize, has_vision: bool) -> Self {
+    pub fn new(
+        task_type: TaskType,
+        model: String,
+        estimated_tokens: usize,
+        has_vision: bool,
+    ) -> Self {
         Self {
             task_type,
             model,
@@ -141,9 +146,9 @@ impl Classifier {
 
         // Check for common image file extensions
         let image_extensions = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"];
-        let has_image_extension = image_extensions.iter().any(|ext| {
-            text.to_lowercase().contains(ext)
-        });
+        let has_image_extension = image_extensions
+            .iter()
+            .any(|ext| text.to_lowercase().contains(ext));
 
         let has_vision = has_image_mime || has_image_markers || has_image_extension;
 
@@ -185,9 +190,10 @@ impl Classifier {
             let lower_text = text.to_lowercase();
 
             // Check keyword matches (case-insensitive)
-            let keyword_match = rule.keywords.iter().any(|keyword| {
-                lower_text.contains(&keyword.to_lowercase())
-            });
+            let keyword_match = rule
+                .keywords
+                .iter()
+                .any(|keyword| lower_text.contains(&keyword.to_lowercase()));
 
             // Check pattern matches (case-sensitive, using regex)
             let pattern_match = rule.patterns.iter().any(|pattern| {
@@ -303,6 +309,7 @@ impl ClassificationInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::schemas::llm_schema::ClassificationRule;
 
     fn test_classifier() -> Classifier {
         let mut config = QueryClassificationConfig::default();
@@ -310,7 +317,11 @@ mod tests {
         config.rules = vec![
             ClassificationRule {
                 hint: "code".to_string(),
-                keywords: vec!["function".to_string(), "class".to_string(), "impl".to_string()],
+                keywords: vec![
+                    "function".to_string(),
+                    "class".to_string(),
+                    "impl".to_string(),
+                ],
                 patterns: vec!["fn ".to_string(), "```rust".to_string()],
                 min_length: Some(10),
                 max_length: None,

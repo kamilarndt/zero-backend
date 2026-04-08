@@ -53,9 +53,12 @@ impl Tool for EmitEventTool {
         })
     }
 
-    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<crate::tools::traits::ToolResult> {
-        let p: EmitEventParams = serde_json::from_value(args)
-            .map_err(|e| anyhow::anyhow!("Invalid params: {}", e))?;
+    async fn execute(
+        &self,
+        args: serde_json::Value,
+    ) -> anyhow::Result<crate::tools::traits::ToolResult> {
+        let p: EmitEventParams =
+            serde_json::from_value(args).map_err(|e| anyhow::anyhow!("Invalid params: {}", e))?;
 
         // Construct event with timestamp
         let event = json!({
@@ -85,7 +88,11 @@ impl Tool for EmitEventTool {
             } else {
                 format!("Failed to emit event: {}", resp.status())
             },
-            error: if success { None } else { Some("HTTP error".into()) },
+            error: if success {
+                None
+            } else {
+                Some("HTTP error".into())
+            },
         })
     }
 }

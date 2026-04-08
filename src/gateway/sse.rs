@@ -55,8 +55,7 @@ pub async fn handle_sse_events(
                 Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(count)) => {
                     tracing::warn!("SSE Stream lagged, dropped {} messages", count);
                     None
-                },
-                Err(_) => None, // Other errors
+                }
             }
         },
     );

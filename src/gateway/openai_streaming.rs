@@ -3,7 +3,9 @@
 //! Converts AgentStreamChunk to SSE format for OpenAI compatibility.
 
 use crate::agent::AgentStreamChunk;
-use crate::gateway::openai_sse_types::{DeltaChoice, DeltaDelta, SSEChunk, ToolCallDelta, ToolFunction};
+use crate::gateway::openai_sse_types::{
+    DeltaChoice, DeltaDelta, SSEChunk, ToolCallDelta, ToolFunction,
+};
 use uuid::Uuid;
 
 /// Convert an AgentStreamChunk to OpenAI SSE format.
@@ -41,7 +43,7 @@ pub fn convert_chunk_to_sse(chunk: &AgentStreamChunk, model: &str) -> SSEChunk {
         AgentStreamChunk::ToolStart {
             tool_id,
             tool_name,
-            args,
+            args: _,
         } => {
             // OpenAI format: tool calls are emitted incrementally
             // First chunk: just the id and type
@@ -151,7 +153,10 @@ mod tests {
         assert_eq!(sse.model, "test-model");
         assert_eq!(sse.choices.len(), 1);
         assert_eq!(sse.choices[0].index, 0);
-        assert_eq!(sse.choices[0].delta.content, Some("Hello, world!".to_string()));
+        assert_eq!(
+            sse.choices[0].delta.content,
+            Some("Hello, world!".to_string())
+        );
         assert!(sse.choices[0].delta.tool_calls.is_none());
         assert!(sse.choices[0].finish_reason.is_none());
     }

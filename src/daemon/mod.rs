@@ -49,9 +49,7 @@ pub async fn run(config: Config, host: String, port: u16) -> Result<()> {
                 max_backoff,
                 move || {
                     let cfg = channels_cfg.clone();
-                    async move {
-                        crate::channels::start_channels(cfg).await.map(|_| ())
-                    }
+                    async move { crate::channels::start_channels(cfg).await.map(|_| ()) }
                 },
             ));
         } else {
@@ -268,10 +266,7 @@ async fn run_hygiene_worker(config: Config) -> Result<()> {
     loop {
         interval.tick().await;
 
-        match crate::memory::hygiene::run_if_due_cpu_aware(
-            &config.memory,
-            &workspace_dir
-        ).await {
+        match crate::memory::hygiene::run_if_due_cpu_aware(&config.memory, &workspace_dir).await {
             Ok(()) => {
                 crate::health::mark_component_ok("hygiene");
             }

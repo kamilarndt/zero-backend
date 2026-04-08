@@ -148,12 +148,18 @@ impl SubAgentManager {
         self.ensure_active().await?;
 
         // Get semaphore reference
-        let semaphore = self.semaphore.get().ok_or(SubAgentError::SemaphoreInitFailed)?;
+        let semaphore = self
+            .semaphore
+            .get()
+            .ok_or(SubAgentError::SemaphoreInitFailed)?;
 
         // Check depth limit for all tasks
         for task in tasks.values() {
             if task.depth >= self.max_depth {
-                return Err(SubAgentError::DepthLimitExceeded(task.depth, self.max_depth));
+                return Err(SubAgentError::DepthLimitExceeded(
+                    task.depth,
+                    self.max_depth,
+                ));
             }
         }
 
@@ -178,12 +184,15 @@ impl SubAgentManager {
         // Process ready tasks with semaphore control
         while let Some(task_id) = ready_queue.pop_front() {
             // Acquire semaphore permit
-            let _permit = semaphore.acquire().await.map_err(|_| {
-                SubAgentError::ExecutionFailed("Semaphore closed".to_string())
-            })?;
+            let _permit = semaphore
+                .acquire()
+                .await
+                .map_err(|_| SubAgentError::ExecutionFailed("Semaphore closed".to_string()))?;
 
             // Get task reference (BUG FIX #2: Short lock scope)
-            let task = tasks.get(&task_id).ok_or(SubAgentError::TaskNotFound(task_id.clone()))?;
+            let task = tasks
+                .get(&task_id)
+                .ok_or(SubAgentError::TaskNotFound(task_id.clone()))?;
 
             // Execute the task (await happens OUTSIDE any lock)
             let result = self.execute_subtask(task).await?;
@@ -447,12 +456,8 @@ mod tests {
         let manager = SubAgentManager::new(2, 3);
 
         // Test architecture -> reasoning
-        let arch = ClassificationResult::new(
-            TaskType::Architecture,
-            "reasoning".to_string(),
-            500,
-            false,
-        );
+        let arch =
+            ClassificationResult::new(TaskType::Architecture, "reasoning".to_string(), 500, false);
         assert_eq!(manager.downgrade_model_by_complexity(&arch), "reasoning");
 
         // Test coding -> code
@@ -460,33 +465,18 @@ mod tests {
         assert_eq!(manager.downgrade_model_by_complexity(&code), "code");
 
         // Test documentation -> fast
-        let docs = ClassificationResult::new(
-            TaskType::Documentation,
-            "fast".to_string(),
-            500,
-            false,
-        );
+        let docs =
+            ClassificationResult::new(TaskType::Documentation, "fast".to_string(), 500, false);
         assert_eq!(manager.downgrade_model_by_complexity(&docs), "fast");
 
         // Test standard with low tokens -> fast
-        let standard_low = ClassificationResult::new(
-            TaskType::Standard,
-            "standard".to_string(),
-            100,
-            false,
-        );
-        assert_eq!(
-            manager.downgrade_model_by_complexity(&standard_low),
-            "fast"
-        );
+        let standard_low =
+            ClassificationResult::new(TaskType::Standard, "standard".to_string(), 100, false);
+        assert_eq!(manager.downgrade_model_by_complexity(&standard_low), "fast");
 
         // Test standard with high tokens -> reasoning
-        let standard_high = ClassificationResult::new(
-            TaskType::Standard,
-            "standard".to_string(),
-            2000,
-            false,
-        );
+        let standard_high =
+            ClassificationResult::new(TaskType::Standard, "standard".to_string(), 2000, false);
         assert_eq!(
             manager.downgrade_model_by_complexity(&standard_high),
             "reasoning"

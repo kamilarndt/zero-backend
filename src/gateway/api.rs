@@ -4,7 +4,6 @@
 
 use super::AppState;
 use crate::auth::jwt;
-use crate::skills::Skill;
 use axum::{
     extract::{Json, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
@@ -2531,7 +2530,7 @@ pub async fn handle_list_skills(
 pub async fn skill_create(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(skill): Json<serde_json::Value>,
+    Json(_skill): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     if let Err(e) = require_auth(&state, &headers).await {
         return e.into_response();
@@ -2624,7 +2623,7 @@ pub async fn handle_get_skill(
 pub async fn skill_delete(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Path(id): Path<i64>,
+    Path(_id): Path<i64>,
 ) -> impl IntoResponse {
     if let Err(e) = require_auth(&state, &headers).await {
         return e.into_response();

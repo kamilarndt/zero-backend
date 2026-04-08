@@ -186,7 +186,10 @@ impl SseParser {
 
             // Skip comments
             if line.starts_with(':') {
-                events.push(SseEvent::new(SseEventType::Comment, line[1..].trim().to_string()));
+                events.push(SseEvent::new(
+                    SseEventType::Comment,
+                    line[1..].trim().to_string(),
+                ));
                 continue;
             }
 
@@ -341,7 +344,7 @@ mod tests {
     #[test]
     fn test_sse_parser_chunked() {
         let mut parser = SseParser::new();
-        
+
         // First chunk - incomplete event
         let events1 = parser.parse("data: hel");
         assert_eq!(events1.len(), 0);
@@ -358,7 +361,7 @@ mod tests {
         let mut parser = SseParser::new();
         parser.parse("data: incompl");
         assert!(parser.is_buffering());
-        
+
         parser.reset();
         assert!(!parser.is_buffering());
     }
@@ -399,7 +402,7 @@ mod tests {
     fn test_sse_event_display() {
         let event = SseEvent::data("hello".to_string());
         assert_eq!(format!("{}", event), "data: hello");
-        
+
         let event2 = SseEvent::event("message".to_string());
         assert_eq!(format!("{}", event2), "event: message");
     }

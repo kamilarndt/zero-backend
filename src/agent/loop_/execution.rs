@@ -1,8 +1,8 @@
-use super::{ToolLoopCancelled, find_tool, ParsedToolCall};
+use super::{find_tool, ParsedToolCall, ToolLoopCancelled};
+use crate::agent::loop_::security::scrub_credentials;
 use crate::approval::ApprovalManager;
 use crate::observability::{Observer, ObserverEvent};
 use crate::tools::Tool;
-use crate::agent::loop_::security::scrub_credentials;
 use anyhow::Result;
 use std::time::Duration;
 use tokio::time::Instant;

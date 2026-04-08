@@ -11,7 +11,11 @@ pub const PROGRESS_MIN_INTERVAL_MS: u64 = 500;
 pub const DRAFT_CLEAR_SENTINEL: &str = "\x00CLEAR\x00";
 
 /// Extract a short hint from tool call arguments for progress display.
-pub fn truncate_tool_args_for_progress(name: &str, args: &serde_json::Value, max_len: usize) -> String {
+pub fn truncate_tool_args_for_progress(
+    name: &str,
+    args: &serde_json::Value,
+    max_len: usize,
+) -> String {
     let hint = match name {
         "shell" => args.get("command").and_then(|v| v.as_str()),
         "file_read" | "file_write" => args.get("path").and_then(|v| v.as_str()),

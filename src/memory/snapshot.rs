@@ -33,7 +33,9 @@ pub fn export_snapshot(workspace_dir: &Path) -> Result<usize> {
     }
 
     let conn = Connection::open(&db_path)?;
-    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;")?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;",
+    )?;
 
     let mut stmt = conn.prepare(
         "SELECT key, content, category, created_at, updated_at
@@ -112,7 +114,9 @@ pub fn hydrate_from_snapshot(workspace_dir: &Path) -> Result<usize> {
 
     let db_path = db_dir.join("brain.db");
     let conn = Connection::open(&db_path)?;
-    conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;")?;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;",
+    )?;
 
     // Initialize schema (same as SqliteMemory::init_schema)
     conn.execute_batch(

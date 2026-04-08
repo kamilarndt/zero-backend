@@ -1,4 +1,4 @@
-use crate::agent::a2a::{AgentRole, A2APacket, A2AMessageBuilder, A2AHelper};
+use crate::agent::a2a::{A2AHelper, A2AMessageBuilder, A2APacket, AgentRole};
 use crate::agent::hands::HandsDispatcher;
 use crate::tools::traits::Tool;
 use async_trait::async_trait;
@@ -161,27 +161,36 @@ Results are communicated back via the A2A (Agent-to-Agent) protocol."#
         use crate::tools::traits::ToolResult;
 
         // Parse arguments
-        let role_str = args.get("role")
+        let role_str = args
+            .get("role")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument: role"))?;
 
-        let role = AgentRole::from_str(role_str)
-            .map_err(|e| anyhow::anyhow!("Invalid role: {}", e))?;
+        let role =
+            AgentRole::from_str(role_str).map_err(|e| anyhow::anyhow!("Invalid role: {}", e))?;
 
-        let task = args.get("task")
+        let task = args
+            .get("task")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument: task"))?;
 
-        let instructions = args.get("instructions")
+        let instructions = args
+            .get("instructions")
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required argument: instructions"))?;
 
-        let dependencies: Vec<String> = args.get("dependencies")
+        let dependencies: Vec<String> = args
+            .get("dependencies")
             .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
 
-        let timeout_seconds = args.get("timeout_seconds")
+        let timeout_seconds = args
+            .get("timeout_seconds")
             .and_then(|v| v.as_u64())
             .unwrap_or(300);
 
@@ -197,7 +206,9 @@ Results are communicated back via the A2A (Agent-to-Agent) protocol."#
         // Register the hand with the HandsDispatcher if available
         let hand_id = if let Some(dispatcher) = &self.hands_dispatcher {
             // Register the hand with the dispatcher
-            let workspace_path = dispatcher.register_hand(request.request_id.clone()).await
+            let workspace_path = dispatcher
+                .register_hand(request.request_id.clone())
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to register hand: {}", e))?;
 
             // Store the workspace path in the request for later use
@@ -215,7 +226,8 @@ Results are communicated back via the A2A (Agent-to-Agent) protocol."#
 
         // Send to dispatcher channel if available
         if let Some(tx) = &self.spawn_tx {
-            tx.send(request.clone()).await
+            tx.send(request.clone())
+                .await
                 .map_err(|e| anyhow::anyhow!("Failed to queue spawn request: {}", e))?;
         }
 

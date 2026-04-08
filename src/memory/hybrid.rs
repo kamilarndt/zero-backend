@@ -41,7 +41,8 @@ impl HybridMemory {
         let sqlite = SqliteMemory::new(workspace_dir)?;
 
         let embedder = Arc::new(crate::memory::embeddings::NoopEmbedding);
-        let qdrant = QdrantMemory::new(qdrant_url, qdrant_collection, qdrant_api_key, embedder).await?;
+        let qdrant =
+            QdrantMemory::new(qdrant_url, qdrant_collection, qdrant_api_key, embedder).await?;
 
         Ok(Self::new(sqlite, qdrant))
     }
@@ -62,7 +63,9 @@ impl Memory for HybridMemory {
         session_id: Option<&str>,
     ) -> Result<()> {
         // Broadcast to both backends
-        let sqlite_task = self.sqlite.store(key, content, category.clone(), session_id);
+        let sqlite_task = self
+            .sqlite
+            .store(key, content, category.clone(), session_id);
         let qdrant_task = self.qdrant.store(key, content, category, session_id);
 
         // Wait for both to complete
@@ -124,10 +127,8 @@ impl Memory for HybridMemory {
 
     async fn forget(&self, key: &str) -> Result<bool> {
         // Delete from both backends
-        let (sqlite_result, qdrant_result) = tokio::try_join!(
-            self.sqlite.forget(key),
-            self.qdrant.forget(key)
-        )?;
+        let (sqlite_result, qdrant_result) =
+            tokio::try_join!(self.sqlite.forget(key), self.qdrant.forget(key))?;
 
         // Return true if either backend deleted something
         Ok(sqlite_result || qdrant_result)
@@ -140,10 +141,8 @@ impl Memory for HybridMemory {
 
     async fn health_check(&self) -> bool {
         // Check both backends
-        let (sqlite_ok, qdrant_ok) = tokio::join!(
-            self.sqlite.health_check(),
-            self.qdrant.health_check()
-        );
+        let (sqlite_ok, qdrant_ok) =
+            tokio::join!(self.sqlite.health_check(), self.qdrant.health_check());
         sqlite_ok && qdrant_ok
     }
 
@@ -154,7 +153,7 @@ impl Memory for HybridMemory {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     #[test]
     fn hybrid_name_is_correct() {

@@ -33,9 +33,7 @@ impl HandWorkspace {
     /// # Errors
     /// Returns an error if directory creation fails
     pub fn create(base_dir: &str, hand_id: &str) -> Result<Self> {
-        let path = PathBuf::from(base_dir)
-            .join("hands")
-            .join(hand_id);
+        let path = PathBuf::from(base_dir).join("hands").join(hand_id);
 
         // Create the directory structure
         fs::create_dir_all(&path)?;
@@ -72,9 +70,7 @@ mod tests {
         let workspace = HandWorkspace::create(base_dir, hand_id).unwrap();
 
         // Verify path structure
-        let expected_path = PathBuf::from(base_dir)
-            .join("hands")
-            .join(hand_id);
+        let expected_path = PathBuf::from(base_dir).join("hands").join(hand_id);
         assert_eq!(workspace.path, expected_path);
         assert_eq!(workspace.hand_id, hand_id);
 
@@ -151,9 +147,7 @@ mod tests {
         let workspace = HandWorkspace::create(base_dir, hand_id).unwrap();
 
         // Verify nested directory structure is created
-        let expected_path = PathBuf::from(base_dir)
-            .join("hands")
-            .join(hand_id);
+        let expected_path = PathBuf::from(base_dir).join("hands").join(hand_id);
         assert_eq!(workspace.path, expected_path);
         assert!(workspace.path.exists());
         assert!(workspace.path.is_dir());

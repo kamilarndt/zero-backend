@@ -1154,7 +1154,11 @@ impl LarkChannel {
         tx: tokio::sync::mpsc::Sender<ChannelMessage>,
     ) -> anyhow::Result<()> {
         self.ensure_bot_open_id().await;
-        use axum::{extract::{State, Json}, routing::post, Router};
+        use axum::{
+            extract::{Json, State},
+            routing::post,
+            Router,
+        };
 
         #[derive(Clone)]
         struct AppState {

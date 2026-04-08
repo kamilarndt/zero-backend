@@ -3,10 +3,10 @@
 //! Provides a shared reqwest::Client with connection pooling
 //! to reuse TCP connections across all API requests.
 
+use once_cell::sync::Lazy;
 use reqwest::Client;
 use std::sync::Arc;
 use std::time::Duration;
-use once_cell::sync::Lazy;
 
 /// Shared HTTP client with connection pooling
 ///
@@ -30,7 +30,7 @@ pub fn get_http_client() -> &'static Arc<Client> {
                 .pool_max_idle_per_host(10)
                 .timeout(Duration::from_secs(10))
                 .build()
-                .expect("Failed to create HTTP client")
+                .expect("Failed to create HTTP client"),
         )
     });
 

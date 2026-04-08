@@ -13,12 +13,12 @@ pub mod subagent;
 pub mod usage_monitor;
 
 // Re-export key types for convenience
-pub use classifier::{
-    ClassificationInput, ClassificationResult, Classifier, TaskType,
+pub use classifier::{ClassificationInput, ClassificationResult, Classifier, TaskType};
+pub use router::{
+    ProviderEntry, RateAwareRouter, RateLimitConfig, RateLimitTracker, RouteDecision,
 };
-pub use router::{RateAwareRouter, ProviderEntry, RateLimitTracker, RouteDecision, RateLimitConfig};
+pub use subagent::{SubAgentError, SubAgentManager, SubTask};
 pub use usage_monitor::{UsageMonitor, UsageStats, UsageSyncConfig};
-pub use subagent::{SubAgentManager, SubTask, SubAgentError};
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -64,10 +64,7 @@ pub struct RoutingManager {
 
 impl RoutingManager {
     /// Create a new routing manager
-    pub fn new(
-        providers: Vec<ProviderEntry>,
-        config: RoutingConfig,
-    ) -> Self {
+    pub fn new(providers: Vec<ProviderEntry>, config: RoutingConfig) -> Self {
         let router = Arc::new(Mutex::new(RateAwareRouter::new(providers)));
         let monitor = Arc::new(Mutex::new(UsageMonitor::new(UsageSyncConfig {
             enabled: config.enable_monitoring,

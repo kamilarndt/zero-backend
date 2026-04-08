@@ -1,6 +1,6 @@
 //! Vector-based skill loader for dynamic prompt injection
 
-use super::engine::{Skill, SkillsEngine, SkillSearchResult};
+use super::engine::{Skill, SkillsEngine};
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -8,10 +8,18 @@ use std::sync::Arc;
 #[async_trait]
 pub trait SkillLoader: Send + Sync {
     /// Load skills that match the query (vector search)
-    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<Skill>, anyhow::Error>;
+    async fn load_matching_skills(
+        &self,
+        query: &str,
+        threshold: f64,
+    ) -> Result<Vec<Skill>, anyhow::Error>;
 
     /// Enrich system prompt with matching skills
-    async fn enrich_system_prompt(&self, query: &str, base_prompt: &str) -> Result<String, anyhow::Error>;
+    async fn enrich_system_prompt(
+        &self,
+        query: &str,
+        base_prompt: &str,
+    ) -> Result<String, anyhow::Error>;
 }
 
 /// Vector-based skill loader using Qdrant similarity search
@@ -30,21 +38,27 @@ impl VectorSkillLoader {
     fn format_skill_for_prompt(skill: &Skill) -> String {
         format!(
             "## 🎯 {}\n\n**Description:** {}\n\n{}",
-            skill.name,
-            skill.description,
-            skill.content
+            skill.name, skill.description, skill.content
         )
     }
 }
 
 #[async_trait]
 impl SkillLoader for VectorSkillLoader {
-    async fn load_matching_skills(&self, query: &str, threshold: f64) -> Result<Vec<Skill>, anyhow::Error> {
+    async fn load_matching_skills(
+        &self,
+        query: &str,
+        threshold: f64,
+    ) -> Result<Vec<Skill>, anyhow::Error> {
         let results = self.engine.search_skills(query, threshold).await?;
         Ok(results.into_iter().map(|r| r.skill).collect())
     }
 
-    async fn enrich_system_prompt(&self, query: &str, base_prompt: &str) -> Result<String, anyhow::Error> {
+    async fn enrich_system_prompt(
+        &self,
+        query: &str,
+        base_prompt: &str,
+    ) -> Result<String, anyhow::Error> {
         let skills = self.load_matching_skills(query, self.threshold).await?;
 
         if skills.is_empty() {

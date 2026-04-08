@@ -7,12 +7,12 @@
 //! - Swarm throughput metrics
 //! - Tasks completed counter
 
-use crate::state::AppState;
 use crate::app::AgentState;
 use crate::state::subsystems::{AgentInfo, AgentStatus};
+use crate::state::AppState;
 use ratatui::{
-    style::Stylize,
     layout::{Alignment, Rect},
+    style::Stylize,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},

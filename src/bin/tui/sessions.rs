@@ -23,11 +23,13 @@ impl AppState {
                         content.push_str(&format!("## User\n{}\n\n", msg.content));
                     }
                     MessageRole::Assistant => {
-                        let model_note = msg.model_used
+                        let model_note = msg
+                            .model_used
                             .as_ref()
                             .map(|m| format!(" (using {})", m))
                             .unwrap_or_default();
-                        content.push_str(&format!("## Assistant{}\n{}\n\n", model_note, msg.content));
+                        content
+                            .push_str(&format!("## Assistant{}\n{}\n\n", model_note, msg.content));
                     }
                     MessageRole::System => {
                         content.push_str(&format!("## System\n{}\n\n", msg.content));
@@ -113,15 +115,21 @@ impl AppState {
     /// Get session statistics
     pub fn session_stats(&self) -> SessionStats {
         if let Some(session) = self.current_session() {
-            let user_messages = session.messages.iter()
+            let user_messages = session
+                .messages
+                .iter()
                 .filter(|m| m.role == MessageRole::User)
                 .count();
 
-            let assistant_messages = session.messages.iter()
+            let assistant_messages = session
+                .messages
+                .iter()
                 .filter(|m| m.role == MessageRole::Assistant)
                 .count();
 
-            let total_chars = session.messages.iter()
+            let total_chars = session
+                .messages
+                .iter()
                 .map(|m| m.content.len())
                 .sum::<usize>();
 

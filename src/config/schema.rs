@@ -2,13 +2,11 @@
 use crate::config::schemas::{
     // LLM types
     llm_schema::{
-        DelegateAgentConfig, EmbeddingRouteConfig, ModelProviderConfig,
-        ModelRouteConfig, QueryClassificationConfig,
+        DelegateAgentConfig, EmbeddingRouteConfig, ModelProviderConfig, ModelRouteConfig,
+        QueryClassificationConfig,
     },
     // Memory types
-    memory_schema::{
-        MemoryConfig, StorageConfig,
-    },
+    memory_schema::{MemoryConfig, StorageConfig},
     // Security types
     security_schema::SecurityConfig,
 };
@@ -1969,7 +1967,8 @@ pub struct ReliabilityConfig {
     /// When a provider doesn't support a model, translate it to an alias.
     /// Example: `{ "ollama" = { "glm-4.7" = "codellama:7b", "glm-5" = "deepseek-coder" } }`
     #[serde(default)]
-    pub provider_model_aliases: std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    pub provider_model_aliases:
+        std::collections::HashMap<String, std::collections::HashMap<String, String>>,
     /// Initial backoff for channel/daemon restarts.
     #[serde(default = "default_channel_backoff_secs")]
     pub channel_initial_backoff_secs: u64,
@@ -7159,8 +7158,19 @@ default_model = "anthropic/claude-sonnet-4.6"
         .unwrap();
 
         assert!(!parsed.quota_routing.external_tools.enabled);
-        assert!(parsed.quota_routing.external_tools.monitored_tools.contains(&"cursor".to_string()));
-        assert_eq!(parsed.quota_routing.external_tools.alerts.alert_threshold_percent, 30);
+        assert!(parsed
+            .quota_routing
+            .external_tools
+            .monitored_tools
+            .contains(&"cursor".to_string()));
+        assert_eq!(
+            parsed
+                .quota_routing
+                .external_tools
+                .alerts
+                .alert_threshold_percent,
+            30
+        );
     }
 }
 

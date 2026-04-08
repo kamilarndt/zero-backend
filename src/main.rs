@@ -1116,7 +1116,9 @@ async fn handle_estop_command(
                 None
             };
 
-            manager.resume(selector, otp_code.as_deref(), otp_validator.as_ref()).await?;
+            manager
+                .resume(selector, otp_code.as_deref(), otp_validator.as_ref())
+                .await?;
             println!("Estop resume completed.");
             print_estop_status(&manager.status());
             Ok(())
@@ -1894,7 +1896,12 @@ async fn run_test_mode() -> Result<()> {
                     diagnostic::DiagnosticStatus::Warn => "⚠",
                     diagnostic::DiagnosticStatus::Skip => "⊘",
                 };
-                println!("{} {}: {}", status, check.name, check.message.as_deref().unwrap_or(&"".to_string()));
+                println!(
+                    "{} {}: {}",
+                    status,
+                    check.name,
+                    check.message.as_deref().unwrap_or(&"".to_string())
+                );
                 if check.status == diagnostic::DiagnosticStatus::Fail {
                     all_passed = false;
                 }

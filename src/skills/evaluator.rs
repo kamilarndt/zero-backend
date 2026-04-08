@@ -62,15 +62,13 @@ impl SkillEvaluator {
         let url = self.ollama_url.clone();
         let model = self.model.clone();
 
-        spawn_blocking(move || {
-            Self::evaluate_sync(&skill, &url, &model)
-        })
-        .await
-        .context("Failed to join background eval task")?
+        spawn_blocking(move || Self::evaluate_sync(&skill, &url, &model))
+            .await
+            .context("Failed to join background eval task")?
     }
 
     /// Synchronous evaluation (runs in blocking thread)
-    fn evaluate_sync(skill: &Skill, ollama_url: &str, model: &str) -> Result<EvalResult> {
+    fn evaluate_sync(skill: &Skill, _ollama_url: &str, _model: &str) -> Result<EvalResult> {
         let skill_id = skill.id.unwrap_or(0);
         let skill_name = skill.name.clone();
 
@@ -171,9 +169,17 @@ impl SkillEvaluator {
 
         let score = ratio.min(1.0);
         let feedback = if ratio > 0.5 {
-            format!("Good consistency: {} of {} key terms found", matches, desc_words.len())
+            format!(
+                "Good consistency: {} of {} key terms found",
+                matches,
+                desc_words.len()
+            )
         } else {
-            format!("Low consistency: only {} of {} key terms found", matches, desc_words.len())
+            format!(
+                "Low consistency: only {} of {} key terms found",
+                matches,
+                desc_words.len()
+            )
         };
 
         CheckResult { score, feedback }

@@ -12,8 +12,8 @@ use async_trait::async_trait;
 use axum::http::HeaderMap;
 use axum::response::IntoResponse;
 use parking_lot::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::any::Any;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Mock provider for testing
 struct MockProvider {
@@ -98,7 +98,9 @@ fn create_test_state() -> AppState {
 
 /// Create a test AppState with pairing enabled
 fn create_test_state_with_pairing(require_pairing: bool) -> AppState {
-    let provider_impl = std::sync::Arc::new(MockProvider { calls: AtomicUsize::new(0) });
+    let provider_impl = std::sync::Arc::new(MockProvider {
+        calls: AtomicUsize::new(0),
+    });
     let provider: std::sync::Arc<dyn Provider> = provider_impl;
     let memory: std::sync::Arc<dyn Memory> = std::sync::Arc::new(MockMemory);
 
@@ -113,7 +115,10 @@ fn create_test_state_with_pairing(require_pairing: bool) -> AppState {
         pairing: std::sync::Arc::new(PairingGuard::new(require_pairing, &[])),
         trust_forwarded_headers: false,
         rate_limiter: std::sync::Arc::new(GatewayRateLimiter::new(100, 100, 100)),
-        idempotency_store: std::sync::Arc::new(IdempotencyStore::new(Duration::from_secs(300), 1000)),
+        idempotency_store: std::sync::Arc::new(IdempotencyStore::new(
+            Duration::from_secs(300),
+            1000,
+        )),
         whatsapp: None,
         whatsapp_app_secret: None,
         linq: None,
@@ -138,12 +143,16 @@ fn create_test_state_with_pairing(require_pairing: bool) -> AppState {
 
 #[tokio::test]
 async fn tui_chat_requires_auth() {
-    let state = create_test_state_with_pairing(true);  // Enable pairing
+    let state = create_test_state_with_pairing(true); // Enable pairing
     let headers = HeaderMap::new();
 
-    let response = api::handle_tui_chat(State(state), headers, Json(serde_json::json!({"content": "hello"})))
-        .await
-        .into_response();
+    let response = api::handle_tui_chat(
+        State(state),
+        headers,
+        Json(serde_json::json!({"content": "hello"})),
+    )
+    .await
+    .into_response();
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
@@ -152,7 +161,10 @@ async fn tui_chat_requires_auth() {
 async fn tui_chat_returns_response() {
     let state = create_test_state();
     let mut headers = HeaderMap::new();
-    headers.insert("authorization", "Bearer test-pairing-token".parse().unwrap());
+    headers.insert(
+        "authorization",
+        "Bearer test-pairing-token".parse().unwrap(),
+    );
 
     let response = api::handle_tui_chat(
         State(state),
@@ -185,7 +197,10 @@ async fn tui_chat_returns_response() {
 async fn tui_chat_missing_content_returns_bad_request() {
     let state = create_test_state();
     let mut headers = HeaderMap::new();
-    headers.insert("authorization", "Bearer test-pairing-token".parse().unwrap());
+    headers.insert(
+        "authorization",
+        "Bearer test-pairing-token".parse().unwrap(),
+    );
 
     let response = api::handle_tui_chat(
         State(state),
@@ -210,7 +225,10 @@ async fn tui_chat_missing_content_returns_bad_request() {
 async fn tui_agents_active_returns_empty_array() {
     let state = create_test_state();
     let mut headers = HeaderMap::new();
-    headers.insert("authorization", "Bearer test-pairing-token".parse().unwrap());
+    headers.insert(
+        "authorization",
+        "Bearer test-pairing-token".parse().unwrap(),
+    );
 
     let response = api::handle_tui_agents_active(State(state), headers)
         .await
@@ -231,7 +249,10 @@ async fn tui_agents_active_returns_empty_array() {
 async fn tui_routing_status_returns_data() {
     let state = create_test_state();
     let mut headers = HeaderMap::new();
-    headers.insert("authorization", "Bearer test-pairing-token".parse().unwrap());
+    headers.insert(
+        "authorization",
+        "Bearer test-pairing-token".parse().unwrap(),
+    );
 
     let response = api::handle_tui_routing_status(State(state), headers)
         .await

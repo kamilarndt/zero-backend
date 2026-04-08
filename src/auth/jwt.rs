@@ -17,7 +17,11 @@ pub fn create_token(sub: &str, secret: &[u8]) -> jsonwebtoken::errors::Result<St
         exp,
         iat,
     };
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret))
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret),
+    )
 }
 
 pub fn verify_token(token: &str, secret: &[u8]) -> jsonwebtoken::errors::Result<Claims> {

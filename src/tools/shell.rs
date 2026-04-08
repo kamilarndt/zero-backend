@@ -218,8 +218,11 @@ impl Tool for ShellTool {
             }
         }
 
-        let result =
-            tokio::time::timeout(Duration::from_secs(SHELL_TIMEOUT_SECS), child.wait_with_output()).await;
+        let result = tokio::time::timeout(
+            Duration::from_secs(SHELL_TIMEOUT_SECS),
+            child.wait_with_output(),
+        )
+        .await;
 
         match result {
             Ok(Ok(output)) => {
@@ -747,10 +750,9 @@ mod tests {
         let dispatcher = Arc::new(HandsDispatcher::new(5));
 
         // Register a hand first
-        dispatcher.register_hand("test_hand".to_string()).await;
+        let _ = dispatcher.register_hand("test_hand".to_string()).await;
 
-        let tool = ShellTool::new(security, runtime)
-            .with_dispatcher(dispatcher.clone());
+        let tool = ShellTool::new(security, runtime).with_dispatcher(dispatcher.clone());
 
         // Execute command with hand_id
         let result = tool
@@ -790,11 +792,10 @@ mod tests {
         });
 
         let dispatcher = Arc::new(HandsDispatcher::new(10));
-        let tool = ShellTool::new(security, test_runtime())
-            .with_dispatcher(dispatcher.clone());
+        let tool = ShellTool::new(security, test_runtime()).with_dispatcher(dispatcher.clone());
 
         // Register hand and set workspace
-        dispatcher.register_hand("test_hand".to_string()).await;
+        let _ = dispatcher.register_hand("test_hand".to_string()).await;
         dispatcher
             .set_hand_workspace("test_hand", workspace_path.clone())
             .await
@@ -802,9 +803,7 @@ mod tests {
 
         // Create a file in the hand workspace
         let test_file = workspace_path.join("test_file.txt");
-        tokio::fs::write(&test_file, "test content")
-            .await
-            .unwrap();
+        tokio::fs::write(&test_file, "test content").await.unwrap();
 
         // Execute command that should see the file
         let result = tool
@@ -819,7 +818,7 @@ mod tests {
         assert!(result.output.contains("test content"));
 
         // Cleanup
-        dispatcher.unregister_hand("test_hand").await;
+        let _ = dispatcher.unregister_hand("test_hand").await;
     }
 
     #[tokio::test]
@@ -834,8 +833,7 @@ mod tests {
         });
 
         let dispatcher = Arc::new(HandsDispatcher::new(10));
-        let tool = ShellTool::new(security, test_runtime())
-            .with_dispatcher(dispatcher);
+        let tool = ShellTool::new(security, test_runtime()).with_dispatcher(dispatcher);
 
         // Create a file in the security workspace
         let test_file = temp_dir.path().join("fallback_test.txt");
@@ -862,8 +860,7 @@ mod tests {
         });
 
         let dispatcher = Arc::new(HandsDispatcher::new(10));
-        let tool = ShellTool::new(security, test_runtime())
-            .with_dispatcher(dispatcher);
+        let tool = ShellTool::new(security, test_runtime()).with_dispatcher(dispatcher);
 
         // Execute command with non-existent hand_id - should fall back to security.workspace_dir
         let result = tool

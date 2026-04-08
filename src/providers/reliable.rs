@@ -351,7 +351,8 @@ impl Provider for ReliableProvider {
             for (provider_name, provider) in &self.providers {
                 let mut backoff_ms = self.base_backoff_ms;
                 // Translate model name for this provider
-                let translated_model = self.translate_model_for_provider(provider_name, current_model);
+                let translated_model =
+                    self.translate_model_for_provider(provider_name, current_model);
 
                 for attempt in 0..=self.max_retries {
                     match provider
@@ -474,7 +475,8 @@ impl Provider for ReliableProvider {
             for (provider_name, provider) in &self.providers {
                 let mut backoff_ms = self.base_backoff_ms;
                 // Translate model name for this provider
-                let translated_model = self.translate_model_for_provider(provider_name, current_model);
+                let translated_model =
+                    self.translate_model_for_provider(provider_name, current_model);
 
                 for attempt in 0..=self.max_retries {
                     match provider
@@ -601,7 +603,8 @@ impl Provider for ReliableProvider {
             for (provider_name, provider) in &self.providers {
                 let mut backoff_ms = self.base_backoff_ms;
                 // Translate model name for this provider
-                let translated_model = self.translate_model_for_provider(provider_name, current_model);
+                let translated_model =
+                    self.translate_model_for_provider(provider_name, current_model);
 
                 for attempt in 0..=self.max_retries {
                     match provider
@@ -714,7 +717,8 @@ impl Provider for ReliableProvider {
             for (provider_name, provider) in &self.providers {
                 let mut backoff_ms = self.base_backoff_ms;
                 // Translate model name for this provider
-                let translated_model = self.translate_model_for_provider(provider_name, current_model);
+                let translated_model =
+                    self.translate_model_for_provider(provider_name, current_model);
 
                 for attempt in 0..=self.max_retries {
                     let req = ChatRequest {
@@ -851,7 +855,8 @@ impl Provider for ReliableProvider {
                 None => model.to_string(),
             };
             // Translate model name for this provider
-            let translated_model = self.translate_model_for_provider(provider_name, &original_model);
+            let translated_model =
+                self.translate_model_for_provider(provider_name, &original_model);
 
             // For streaming, we attempt once and propagate errors
             // The caller can retry the entire request if needed

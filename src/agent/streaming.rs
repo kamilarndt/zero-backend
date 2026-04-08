@@ -1,7 +1,6 @@
 //! Streaming agent implementation for OpenAI compatibility layer.
 
 use crate::providers::ChatMessage;
-use serde::{Deserialize, Serialize};
 
 /// Request for streaming agent turn
 #[derive(Debug, Clone)]
@@ -28,10 +27,7 @@ pub enum AgentStreamChunk {
     },
 
     /// Tool execution result
-    ToolResult {
-        tool_id: String,
-        result: String,
-    },
+    ToolResult { tool_id: String, result: String },
 
     /// All tool executions complete
     ToolEnd,

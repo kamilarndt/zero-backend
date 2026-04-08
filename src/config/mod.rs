@@ -1,63 +1,121 @@
+pub mod routing;
 pub mod schema;
 pub mod traits;
-pub mod routing;
 
 // Domain-specific schema modules
 pub mod schemas {
+    pub mod llm_schema;
     pub mod memory_schema;
     pub mod security_schema;
-    pub mod llm_schema;
 
     // Re-export memory types
     pub use memory_schema::{
-        StorageConfig, StorageProviderSection, StorageProviderConfig,
-        MemoryConfig, QdrantConfig,
+        MemoryConfig, QdrantConfig, StorageConfig, StorageProviderConfig, StorageProviderSection,
     };
 
     // Re-export security types
     pub use security_schema::{
-        SecurityConfig, OtpConfig, OtpMethod, EstopConfig,
-        SandboxConfig, SandboxBackend, ResourceLimitsConfig, AuditConfig,
+        AuditConfig, EstopConfig, OtpConfig, OtpMethod, ResourceLimitsConfig, SandboxBackend,
+        SandboxConfig, SecurityConfig,
     };
 
     // Re-export LLM types
     pub use llm_schema::{
-        ModelRouteConfig, EmbeddingRouteConfig,
-        QueryClassificationConfig, ClassificationRule, DelegateAgentConfig,
+        ClassificationRule, DelegateAgentConfig, EmbeddingRouteConfig, ModelRouteConfig,
+        QueryClassificationConfig,
     };
 }
 
 // Re-export types from schema.rs (main config types)
 #[allow(unused_imports)]
 pub use schema::{
-    apply_runtime_proxy_to_builder, build_runtime_proxy_client,
-    build_runtime_proxy_client_with_timeouts, runtime_proxy_config, set_runtime_proxy_config,
+    apply_runtime_proxy_to_builder,
+    build_runtime_proxy_client,
+    build_runtime_proxy_client_with_timeouts,
     default_nostr_relays,
+    runtime_proxy_config,
+    set_runtime_proxy_config,
     // Types defined in schema.rs
-    AgentConfig, AutonomyConfig, BrowserComputerUseConfig, BrowserConfig,
-    BuiltinHooksConfig, ChannelsConfig, ComposioConfig, Config, CostConfig,
-    CronConfig, DiscordConfig, DockerRuntimeConfig,
-    DingTalkConfig, FeishuConfig, GatewayConfig, HardwareConfig, HardwareTransport,
-    HeartbeatConfig, HooksConfig, HttpRequestConfig, IMessageConfig, IdentityConfig, IrcConfig,
-    LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig,
-    MultimodalConfig, NextcloudTalkConfig, NostrConfig, ObservabilityConfig,
-    PeripheralBoardConfig, PeripheralsConfig, ProxyConfig, ProxyScope,
-    QQConfig, QuotaRoutingSchema, ReliabilityConfig,
-    RuntimeConfig, SchedulerConfig, SecretsConfig, SignalConfig,
-    SkillsConfig, SkillsPromptInjectionMode, SlackConfig,
-    StreamMode, TelegramConfig, TranscriptionConfig, TunnelConfig, TailscaleTunnelConfig,
-    WebFetchConfig, WebSearchConfig, WebhookConfig, WhatsAppConfig,
+    AgentConfig,
+    AutonomyConfig,
+    BrowserComputerUseConfig,
+    BrowserConfig,
+    BuiltinHooksConfig,
+    ChannelsConfig,
+    ComposioConfig,
+    Config,
+    CostConfig,
+    CronConfig,
+    DingTalkConfig,
+    DiscordConfig,
+    DockerRuntimeConfig,
+    FeishuConfig,
+    GatewayConfig,
+    HardwareConfig,
+    HardwareTransport,
+    HeartbeatConfig,
+    HooksConfig,
+    HttpRequestConfig,
+    IMessageConfig,
+    IdentityConfig,
+    IrcConfig,
+    LarkConfig,
+    LarkReceiveMode,
+    LinqConfig,
+    MatrixConfig,
+    MultimodalConfig,
+    NextcloudTalkConfig,
+    NostrConfig,
+    ObservabilityConfig,
+    PeripheralBoardConfig,
+    PeripheralsConfig,
+    ProxyConfig,
+    ProxyScope,
+    QQConfig,
+    QuotaRoutingSchema,
+    ReliabilityConfig,
+    RuntimeConfig,
+    SchedulerConfig,
+    SecretsConfig,
+    SignalConfig,
+    SkillsConfig,
+    SkillsPromptInjectionMode,
+    SlackConfig,
+    StreamMode,
+    TailscaleTunnelConfig,
+    TelegramConfig,
+    TranscriptionConfig,
+    TunnelConfig,
+    WebFetchConfig,
+    WebSearchConfig,
+    WebhookConfig,
+    WhatsAppConfig,
 };
 
 // Re-export types from schemas submodules
 #[allow(unused_imports)]
 pub use schemas::{
-    // From llm_schema
-    ClassificationRule, DelegateAgentConfig, EmbeddingRouteConfig, ModelRouteConfig, QueryClassificationConfig,
-    // From memory_schema
-    MemoryConfig, QdrantConfig, StorageConfig, StorageProviderConfig, StorageProviderSection,
     // From security_schema
-    AuditConfig, EstopConfig, OtpConfig, OtpMethod, ResourceLimitsConfig, SandboxBackend, SandboxConfig, SecurityConfig,
+    AuditConfig,
+    // From llm_schema
+    ClassificationRule,
+    DelegateAgentConfig,
+    EmbeddingRouteConfig,
+    EstopConfig,
+    // From memory_schema
+    MemoryConfig,
+    ModelRouteConfig,
+    OtpConfig,
+    OtpMethod,
+    QdrantConfig,
+    QueryClassificationConfig,
+    ResourceLimitsConfig,
+    SandboxBackend,
+    SandboxConfig,
+    SecurityConfig,
+    StorageConfig,
+    StorageProviderConfig,
+    StorageProviderSection,
 };
 
 pub fn name_and_presence<T: traits::ChannelConfig>(channel: &Option<T>) -> (&'static str, bool) {

@@ -4,9 +4,9 @@
 //! Each subsystem publishes updates to a watch channel, and panels subscribe to
 //! receive automatic notifications when state changes.
 
-use super::subsystems::{SwarmSnapshot, CostSnapshot, MemorySnapshot, LogsSnapshot};
-use tokio::sync::watch;
+use super::subsystems::{CostSnapshot, LogsSnapshot, MemorySnapshot, SwarmSnapshot};
 use std::time::Instant;
+use tokio::sync::watch;
 
 /// Central state broadcaster for all TUI subsystems
 ///

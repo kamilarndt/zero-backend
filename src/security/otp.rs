@@ -90,7 +90,7 @@ impl OtpValidator {
 
         let secret_clone = self.secret.clone();
         let normalized_owned = normalized.to_string();
-        
+
         // Wrap the CPU-heavy HMAC generation in spawn_blocking
         let is_valid = tokio::task::spawn_blocking(move || {
             counters
@@ -300,7 +300,10 @@ mod tests {
         let dir = tempdir().unwrap();
         let store = SecretStore::new(dir.path(), true);
         let (validator, _) = OtpValidator::from_config(&test_config(), dir.path(), &store).unwrap();
-        assert!(!validator.validate_at("123456", 1_700_000_000).await.unwrap());
+        assert!(!validator
+            .validate_at("123456", 1_700_000_000)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]

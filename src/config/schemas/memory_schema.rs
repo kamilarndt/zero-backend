@@ -1,6 +1,6 @@
 // Memory subsystem configuration
-use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 // ── Storage ─────────────────────────────────────────────────────
 
@@ -225,7 +225,7 @@ fn default_embedding_model() -> String {
     "paraphrase-multilingual-MiniLM-L12-v2".into()
 }
 fn default_embedding_dims() -> usize {
-    384  // Dimensions for multilingual-MiniLM-L12-v2
+    384 // Dimensions for multilingual-MiniLM-L12-v2
 }
 fn default_vector_weight() -> f64 {
     0.7
@@ -234,7 +234,7 @@ fn default_keyword_weight() -> f64 {
     0.3
 }
 fn default_min_relevance_score() -> f64 {
-    0.25  // Lower threshold for more lenient memory recall
+    0.25 // Lower threshold for more lenient memory recall
 }
 fn default_cache_size() -> usize {
     10_000

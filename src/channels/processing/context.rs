@@ -4,12 +4,12 @@
 
 use crate::channels::traits::ChannelMessage;
 use crate::config::{MultimodalConfig, ReliabilityConfig};
+use crate::hooks::HookRunner;
 use crate::memory::Memory;
 use crate::observability::Observer;
 use crate::providers::{Provider, ProviderRuntimeOptions};
-use crate::tools::Tool;
-use crate::hooks::HookRunner;
 use crate::skills::Skill;
+use crate::tools::Tool;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};

@@ -6,8 +6,8 @@
 //! - Anti-replay protection (auth_date validation)
 
 use axum::{
-    extract::{State, Json},
-    http::{header, HeaderMap, StatusCode},
+    extract::Json,
+    http::StatusCode,
     response::IntoResponse,
     routing::post,
     Router,
@@ -46,15 +46,12 @@ pub struct TMAUserInfo {
 
 /// Create TMA authentication router
 pub fn tma_auth_router() -> Router {
-    Router::new()
-        .route("/api/v1/telegram/tma/auth", post(handle_tma_auth))
+    Router::new().route("/api/v1/telegram/tma/auth", post(handle_tma_auth))
 }
 
 /// Handle TMA authentication (POST /api/v1/telegram/tma/auth)
 #[allow(clippy::too_many_arguments)]
-pub async fn handle_tma_auth(
-    Json(req): Json<TMAAuthRequest>,
-) -> impl IntoResponse {
+pub async fn handle_tma_auth(Json(req): Json<TMAAuthRequest>) -> impl IntoResponse {
     // TODO: Extract bot_token and jwt_secret from actual state/config
     let bot_token = ""; // TODO: from config
     let jwt_secret = b"placeholder_secret"; // TODO: from config
@@ -100,14 +97,13 @@ pub async fn handle_tma_auth(
     type HmacSha256 = Hmac<Sha256>;
 
     // Create secret key: HMAC-SHA256(bot_token, "WebAppData")
-    let mut secret_key_mac = HmacSha256::new_from_slice(bot_token.as_bytes())
-        .expect("HMAC key should be valid");
+    let mut secret_key_mac =
+        HmacSha256::new_from_slice(bot_token.as_bytes()).expect("HMAC key should be valid");
     secret_key_mac.update(b"WebAppData");
     let secret_key = secret_key_mac.finalize().into_bytes();
 
     // Compute expected hash: HMAC-SHA256(secret_key, data_check_string)
-    let mut hash_mac = HmacSha256::new_from_slice(&secret_key)
-        .expect("HMAC key should be valid");
+    let mut hash_mac = HmacSha256::new_from_slice(&secret_key).expect("HMAC key should be valid");
     hash_mac.update(data_check_string.as_bytes());
     let expected_hash = hex::encode(hash_mac.finalize().into_bytes());
 
@@ -203,7 +199,11 @@ pub async fn handle_tma_auth(
     };
 
     // ── Log successful authentication
-    tracing::info!("✅ TMA auth: user_id={}, username={:?}", user_data.id, user_data.username);
+    tracing::info!(
+        "✅ TMA auth: user_id={}, username={:?}",
+        user_data.id,
+        user_data.username
+    );
 
     // ── Success response
     (
@@ -217,13 +217,8 @@ pub async fn handle_tma_auth(
 }
 
 /// Create data check string from Telegram initData parameters
-fn create_data_check_string(
-    params: &std::collections::HashMap<String, String>,
-) -> String {
-    let mut sorted: Vec<_> = params
-        .iter()
-        .filter(|(k, _)| *k != "hash")
-        .collect();
+fn create_data_check_string(params: &std::collections::HashMap<String, String>) -> String {
+    let mut sorted: Vec<_> = params.iter().filter(|(k, _)| *k != "hash").collect();
     sorted.sort_by_key(|(k, _)| *k);
 
     sorted

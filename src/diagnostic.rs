@@ -62,7 +62,7 @@ pub async fn run_diagnostics(config: &Config) -> Vec<DiagnosticCheck> {
 /// Validate configuration structure
 pub fn validate_config(config: &Config) -> DiagnosticCheck {
     let mut warnings: Vec<String> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
+    let errors: Vec<String> = Vec::new();
 
     // Check gateway config
     if config.gateway.port == 0 {
@@ -77,7 +77,8 @@ pub fn validate_config(config: &Config) -> DiagnosticCheck {
             || std::env::var("API_KEY").is_ok();
 
         if !has_env_key {
-            warnings.push("No API key configured (set ZEROCLAW_API_KEY or run onboard)".to_string());
+            warnings
+                .push("No API key configured (set ZEROCLAW_API_KEY or run onboard)".to_string());
         }
     }
 
@@ -97,7 +98,11 @@ pub fn validate_config(config: &Config) -> DiagnosticCheck {
     DiagnosticCheck {
         name: "Configuration".to_string(),
         status,
-        message: Some(format!("{} errors, {} warnings", errors.len(), warnings.len())),
+        message: Some(format!(
+            "{} errors, {} warnings",
+            errors.len(),
+            warnings.len()
+        )),
         details: Some(json!({
             "errors": errors,
             "warnings": warnings,
@@ -110,13 +115,16 @@ fn check_api_keys(config: &Config) -> Vec<DiagnosticCheck> {
     let mut checks = Vec::new();
 
     // Check OpenRouter (primary provider)
-    let openrouter_key = std::env::var("OPENROUTER_API_KEY").ok()
+    let openrouter_key = std::env::var("OPENROUTER_API_KEY")
+        .ok()
         .or_else(|| std::env::var("API_KEY").ok())
         .or(config.api_key.clone());
 
     checks.push(DiagnosticCheck {
         name: "OpenRouter API Key".to_string(),
-        status: if openrouter_key.is_some() && openrouter_key.as_ref().map_or(false, |k| k.len() > 10) {
+        status: if openrouter_key.is_some()
+            && openrouter_key.as_ref().map_or(false, |k| k.len() > 10)
+        {
             DiagnosticStatus::Pass
         } else if openrouter_key.is_some() {
             DiagnosticStatus::Warn
@@ -171,7 +179,11 @@ fn check_memory_backend() -> DiagnosticCheck {
 fn check_gateway_config(config: &Config) -> DiagnosticCheck {
     let host = &config.gateway.host;
     let port = config.gateway.port;
-    let port_display = if port == 0 { "random".to_string() } else { port.to_string() };
+    let port_display = if port == 0 {
+        "random".to_string()
+    } else {
+        port.to_string()
+    };
 
     DiagnosticCheck {
         name: "Gateway".to_string(),
@@ -192,8 +204,12 @@ fn check_channels(config: &Config) -> Vec<DiagnosticCheck> {
 
     // Count configured channels (is_some() means configured)
     let channels = config.channels_config.channels();
-    let configured_count = channels.iter().filter(|(_, is_configured)| *is_configured).count();
-    let channel_names: Vec<&str> = channels.iter()
+    let configured_count = channels
+        .iter()
+        .filter(|(_, is_configured)| *is_configured)
+        .count();
+    let channel_names: Vec<&str> = channels
+        .iter()
         .filter(|(_, is_configured)| *is_configured)
         .map(|(ch, _)| ch.name())
         .collect();
@@ -201,7 +217,10 @@ fn check_channels(config: &Config) -> Vec<DiagnosticCheck> {
     checks.push(DiagnosticCheck {
         name: "Channels".to_string(),
         status: DiagnosticStatus::Pass,
-        message: Some(format!("{} channels configured (CLI always available)", configured_count)),
+        message: Some(format!(
+            "{} channels configured (CLI always available)",
+            configured_count
+        )),
         details: Some(json!({
             "configured_count": configured_count,
             "channels": channel_names
@@ -218,16 +237,15 @@ pub async fn quick_test() -> Result<String, anyhow::Error> {
     // Test 1: Check if gateway is responsive
     tokio::time::timeout(Duration::from_secs(2), async {
         let client = reqwest::Client::new();
-        client.get("http://127.0.0.1:42617/health")
-            .send()
-            .await
+        client.get("http://127.0.0.1:42617/health").send().await
     })
     .await
     .map_err(|_| anyhow::anyhow!("Gateway not responding on http://127.0.0.1:42617"))??;
 
     // Test 2: Check if API endpoints work
     let client = reqwest::Client::new();
-    let response = client.get("http://127.0.0.1:42617/health")
+    let response = client
+        .get("http://127.0.0.1:42617/health")
         .send()
         .await?
         .text()
@@ -240,5 +258,8 @@ pub async fn quick_test() -> Result<String, anyhow::Error> {
         "ok".to_string()
     };
 
-    Ok(format!("✓ Gateway responsive\n✓ API endpoints working\nHealth: {}", status_str))
+    Ok(format!(
+        "✓ Gateway responsive\n✓ API endpoints working\nHealth: {}",
+        status_str
+    ))
 }

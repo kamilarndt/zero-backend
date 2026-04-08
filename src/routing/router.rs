@@ -5,8 +5,8 @@
 //! - Rate limit status
 //! - Preemptive fallback thresholds
 
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 /// Provider configuration entry
 #[derive(Debug, Clone)]
@@ -62,11 +62,7 @@ pub struct RateLimitConfig {
 
 impl RateLimitConfig {
     /// Create a new rate limit configuration
-    pub fn new(
-        rpm_limit: Option<u32>,
-        tpm_limit: Option<u32>,
-        daily_limit: Option<u32>,
-    ) -> Self {
+    pub fn new(rpm_limit: Option<u32>, tpm_limit: Option<u32>, daily_limit: Option<u32>) -> Self {
         Self {
             rpm_limit,
             tpm_limit,
@@ -122,7 +118,11 @@ impl RateLimitTracker {
     /// Reset minute counters if window has expired
     pub fn reset_minute_if_expired(&mut self) {
         let now = Utc::now();
-        if now.signed_duration_since(self.minute_window_start).num_seconds() >= 60 {
+        if now
+            .signed_duration_since(self.minute_window_start)
+            .num_seconds()
+            >= 60
+        {
             self.rpm_current = 0;
             self.tpm_current = 0;
             self.minute_window_start = now;
@@ -209,15 +209,18 @@ impl RateLimitTracker {
         self.reset_minute_if_expired();
         self.reset_daily_if_expired();
 
-        let rpm_ratio = config.rpm_limit
+        let rpm_ratio = config
+            .rpm_limit
             .map(|limit| self.rpm_current as f64 / limit as f64)
             .unwrap_or(0.0);
 
-        let tpm_ratio = config.tpm_limit
+        let tpm_ratio = config
+            .tpm_limit
             .map(|limit| self.tpm_current as f64 / limit as f64)
             .unwrap_or(0.0);
 
-        let daily_ratio = config.daily_limit
+        let daily_ratio = config
+            .daily_limit
             .map(|limit| self.daily_current as f64 / limit as f64)
             .unwrap_or(0.0);
 
@@ -265,10 +268,9 @@ impl RateAwareRouter {
         // Add providers and initialize trackers
         for provider in providers {
             let provider_id = provider.id.clone();
-            router.trackers.insert(
-                provider_id.clone(),
-                RateLimitTracker::new(provider_id),
-            );
+            router
+                .trackers
+                .insert(provider_id.clone(), RateLimitTracker::new(provider_id));
             router.providers.push(provider);
         }
 
@@ -291,10 +293,8 @@ impl RateAwareRouter {
     /// Add a new provider
     pub fn add_provider(&mut self, provider: ProviderEntry) {
         let provider_id = provider.id.clone();
-        self.trackers.insert(
-            provider_id.clone(),
-            RateLimitTracker::new(provider_id),
-        );
+        self.trackers
+            .insert(provider_id.clone(), RateLimitTracker::new(provider_id));
         self.providers.push(provider);
         self.providers.sort_by_key(|p| p.priority);
     }
@@ -358,7 +358,8 @@ impl RateAwareRouter {
             }
 
             // Check if provider is approaching rate limit (preemptive fallback)
-            if self.check_approaching_limit(tracker, &provider.rate_limit, self.fallback_threshold) {
+            if self.check_approaching_limit(tracker, &provider.rate_limit, self.fallback_threshold)
+            {
                 attempted.push(provider.id.clone());
                 continue;
             }
@@ -407,7 +408,12 @@ impl RateAwareRouter {
     }
 
     /// Check if tracker is approaching rate limit (immutable helper)
-    fn check_approaching_limit(&self, tracker: &RateLimitTracker, config: &RateLimitConfig, threshold: f64) -> bool {
+    fn check_approaching_limit(
+        &self,
+        tracker: &RateLimitTracker,
+        config: &RateLimitConfig,
+        threshold: f64,
+    ) -> bool {
         if let Some(rpm_limit) = config.rpm_limit {
             if rpm_limit > 0 && (tracker.rpm_current as f64 / rpm_limit as f64) >= threshold {
                 return true;
@@ -431,7 +437,9 @@ impl RateAwareRouter {
 
     /// Record a request for rate limit tracking
     pub fn record_request(&mut self, provider_id: &str, tokens: u32) -> Result<(), String> {
-        let tracker = self.trackers.get_mut(provider_id)
+        let tracker = self
+            .trackers
+            .get_mut(provider_id)
             .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
 
         tracker.record_request(tokens);
@@ -453,17 +461,42 @@ impl RateAwareRouter {
     }
 
     /// Get usage ratios without mutation (immutable helper)
-    fn get_usage_ratios(&self, tracker: &RateLimitTracker, config: &RateLimitConfig) -> (f64, f64, f64) {
-        let rpm_ratio = config.rpm_limit
-            .map(|limit| if limit > 0 { tracker.rpm_current as f64 / limit as f64 } else { 0.0 })
+    fn get_usage_ratios(
+        &self,
+        tracker: &RateLimitTracker,
+        config: &RateLimitConfig,
+    ) -> (f64, f64, f64) {
+        let rpm_ratio = config
+            .rpm_limit
+            .map(|limit| {
+                if limit > 0 {
+                    tracker.rpm_current as f64 / limit as f64
+                } else {
+                    0.0
+                }
+            })
             .unwrap_or(0.0);
 
-        let tpm_ratio = config.tpm_limit
-            .map(|limit| if limit > 0 { tracker.tpm_current as f64 / limit as f64 } else { 0.0 })
+        let tpm_ratio = config
+            .tpm_limit
+            .map(|limit| {
+                if limit > 0 {
+                    tracker.tpm_current as f64 / limit as f64
+                } else {
+                    0.0
+                }
+            })
             .unwrap_or(0.0);
 
-        let daily_ratio = config.daily_limit
-            .map(|limit| if limit > 0 { tracker.daily_current as f64 / limit as f64 } else { 0.0 })
+        let daily_ratio = config
+            .daily_limit
+            .map(|limit| {
+                if limit > 0 {
+                    tracker.daily_current as f64 / limit as f64
+                } else {
+                    0.0
+                }
+            })
             .unwrap_or(0.0);
 
         (rpm_ratio, tpm_ratio, daily_ratio)
@@ -473,10 +506,8 @@ impl RateAwareRouter {
     pub fn reset_all_trackers(&mut self) {
         let provider_ids: Vec<String> = self.trackers.keys().cloned().collect();
         for provider_id in provider_ids {
-            self.trackers.insert(
-                provider_id.clone(),
-                RateLimitTracker::new(provider_id),
-            );
+            self.trackers
+                .insert(provider_id.clone(), RateLimitTracker::new(provider_id));
         }
     }
 
@@ -495,7 +526,9 @@ impl RateAwareRouter {
 
     /// Update provider active status
     pub fn set_provider_active(&mut self, provider_id: &str, active: bool) -> Result<(), String> {
-        let provider = self.providers.iter_mut()
+        let provider = self
+            .providers
+            .iter_mut()
             .find(|p| p.id == provider_id)
             .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
 
@@ -504,9 +537,15 @@ impl RateAwareRouter {
     }
 
     /// Update provider priority
-    pub fn set_provider_priority(&mut self, provider_id: &str, priority: u32) -> Result<(), String> {
+    pub fn set_provider_priority(
+        &mut self,
+        provider_id: &str,
+        priority: u32,
+    ) -> Result<(), String> {
         {
-            let provider = self.providers.iter_mut()
+            let provider = self
+                .providers
+                .iter_mut()
                 .find(|p| p.id == provider_id)
                 .ok_or_else(|| format!("Provider not found: {}", provider_id))?;
 
@@ -549,9 +588,7 @@ mod tests {
 
     #[test]
     fn test_route_success() {
-        let providers = vec![
-            create_test_provider("provider1", 1),
-        ];
+        let providers = vec![create_test_provider("provider1", 1)];
 
         let router = RateAwareRouter::new(providers);
         let decision = router.route("claude-3-5-sonnet");
@@ -559,7 +596,7 @@ mod tests {
         match decision {
             RouteDecision::Success { provider_id, .. } => {
                 assert_eq!(provider_id, "provider1");
-            },
+            }
             _ => panic!("Expected Success"),
         }
     }

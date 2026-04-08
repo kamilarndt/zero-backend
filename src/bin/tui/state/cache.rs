@@ -84,11 +84,14 @@ impl RequestCache {
             }
         } else {
             // New entry, mark as pending
-            entries.insert(key.to_string(), CacheEntry {
-                data: serde_json::Value::Null,
-                timestamp: Instant::now(),
-                pending: true,
-            });
+            entries.insert(
+                key.to_string(),
+                CacheEntry {
+                    data: serde_json::Value::Null,
+                    timestamp: Instant::now(),
+                    pending: true,
+                },
+            );
             None
         }
     }

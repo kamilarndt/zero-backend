@@ -7,11 +7,11 @@
 //! - Module/source attribution
 //! - Rolling buffer (last 200 lines)
 
-use crate::state::AppState;
 use crate::state::subsystems::{LogLevel, LogLine};
+use crate::state::AppState;
 use ratatui::{
-    style::Stylize,
     layout::{Alignment, Rect},
+    style::Stylize,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},

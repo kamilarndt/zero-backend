@@ -2,8 +2,8 @@
 //!
 //! This module provides keyboard event mapping and handling for the terminal UI.
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use super::state::InputMode;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Application events
 #[derive(Debug, Clone, PartialEq, Eq)]

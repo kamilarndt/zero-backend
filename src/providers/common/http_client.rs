@@ -130,7 +130,7 @@ pub fn build_provider_client(
 
     // Convert to static str for the config function
     let static_key: &'static str = Box::leak(service_key.into_boxed_str());
-    
+
     crate::config::build_runtime_proxy_client_with_timeouts(static_key, timeout, connect_timeout)
 }
 

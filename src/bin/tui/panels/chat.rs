@@ -7,6 +7,7 @@
 //! - Word wrapping for long messages
 //! - Scrollable message history
 
+use crate::state::{AppState, Message, MessageRole};
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style, Stylize},
@@ -14,7 +15,6 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
-use crate::state::{AppState, Message, MessageRole};
 
 /// State specific to the chat panel
 #[derive(Debug, Clone, Default)]
@@ -32,32 +32,35 @@ pub struct ChatPanelState {
 /// Render the chat panel
 pub fn render_chat_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &ChatPanelState) {
     static EMPTY_MESSAGES: Vec<Message> = Vec::new();
-    let messages = app.current_session()
+    let messages = app
+        .current_session()
         .map(|s| &s.messages)
         .unwrap_or(&EMPTY_MESSAGES);
 
     let mut text = Text::default();
 
     // Apply scroll offset (show most recent messages first)
-    let visible_messages: Vec<_> = messages
-        .iter()
-        .rev()
-        .skip(state.scroll_offset)
-        .collect();
+    let visible_messages: Vec<_> = messages.iter().rev().skip(state.scroll_offset).collect();
 
     for msg in visible_messages.iter().rev() {
         let (prefix, style) = match msg.role {
             MessageRole::User => (
                 "You: ",
-                Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
             ),
             MessageRole::Assistant => (
                 "AI: ",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ),
             MessageRole::System => (
                 "System: ",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::ITALIC),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::ITALIC),
             ),
         };
 
@@ -117,7 +120,7 @@ pub fn render_chat_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(title)
+                .title(title),
         )
         .wrap(Wrap { trim: false })
         .alignment(Alignment::Left)
@@ -149,9 +152,9 @@ mod tests {
         let state = ChatPanelState::default();
 
         // Should not panic
-        let mut terminal = ratatui::Terminal::new(
-            ratatui::backend::CrosstermBackend::new(std::io::stdout())
-        ).unwrap();
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))
+                .unwrap();
         let _ = terminal.draw(|f| {
             render_chat_panel(f, f.area(), &app, &state);
         });

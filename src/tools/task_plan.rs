@@ -20,14 +20,19 @@ impl TaskPlanTool {
     fn handle_create(&self, args: serde_json::Value) -> ToolResult {
         let title = match args.get("title").and_then(|v| v.as_str()) {
             Some(t) => t.to_string(),
-            None => return ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Missing required field: title".to_string()),
-            },
+            None => {
+                return ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Missing required field: title".to_string()),
+                }
+            }
         };
 
-        let status_str = args.get("status").and_then(|v| v.as_str()).unwrap_or("Todo");
+        let status_str = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Todo");
         let status = match status_str {
             "Todo" => TaskStatus::Todo,
             "InProgress" => TaskStatus::InProgress,
@@ -36,8 +41,14 @@ impl TaskPlanTool {
             _ => TaskStatus::Todo,
         };
 
-        let parent_id = args.get("parent_id").and_then(|v| v.as_str()).map(String::from);
-        let assigned_hand = args.get("assigned_hand").and_then(|v| v.as_str()).map(String::from);
+        let parent_id = args
+            .get("parent_id")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let assigned_hand = args
+            .get("assigned_hand")
+            .and_then(|v| v.as_str())
+            .map(String::from);
 
         let task = AgentTask::new(title, status, parent_id, assigned_hand);
 
@@ -59,14 +70,19 @@ impl TaskPlanTool {
     fn handle_update(&self, args: serde_json::Value) -> ToolResult {
         let task_id = match args.get("task_id").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Missing required field: task_id".to_string()),
-            },
+            None => {
+                return ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Missing required field: task_id".to_string()),
+                }
+            }
         };
 
-        let status_str = args.get("status").and_then(|v| v.as_str()).unwrap_or("Todo");
+        let status_str = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Todo");
         let status = match status_str {
             "Todo" => TaskStatus::Todo,
             "InProgress" => TaskStatus::InProgress,
@@ -93,13 +109,16 @@ impl TaskPlanTool {
     }
 
     fn handle_list(&self, args: serde_json::Value) -> ToolResult {
-        let status_filter = args.get("status").and_then(|v| v.as_str()).map(|s| match s {
-            "Todo" => TaskStatus::Todo,
-            "InProgress" => TaskStatus::InProgress,
-            "Review" => TaskStatus::Review,
-            "Done" => TaskStatus::Done,
-            _ => TaskStatus::Todo,
-        });
+        let status_filter = args
+            .get("status")
+            .and_then(|v| v.as_str())
+            .map(|s| match s {
+                "Todo" => TaskStatus::Todo,
+                "InProgress" => TaskStatus::InProgress,
+                "Review" => TaskStatus::Review,
+                "Done" => TaskStatus::Done,
+                _ => TaskStatus::Todo,
+            });
 
         let conn = self.db.lock();
         match crate::memory::tasks::list_tasks(&conn, status_filter) {
@@ -138,11 +157,13 @@ impl TaskPlanTool {
     fn handle_get(&self, args: serde_json::Value) -> ToolResult {
         let task_id = match args.get("task_id").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Missing required field: task_id".to_string()),
-            },
+            None => {
+                return ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Missing required field: task_id".to_string()),
+                }
+            }
         };
 
         let conn = self.db.lock();
@@ -151,7 +172,13 @@ impl TaskPlanTool {
                 success: true,
                 output: format!(
                     "Task {}: {}\nStatus: {:?}\nParent: {:?}\nHand: {:?}\nCreated: {}\nUpdated: {}",
-                    task.id, task.title, task.status, task.parent_id, task.assigned_hand, task.created_at, task.updated_at
+                    task.id,
+                    task.title,
+                    task.status,
+                    task.parent_id,
+                    task.assigned_hand,
+                    task.created_at,
+                    task.updated_at
                 ),
                 error: None,
             },
@@ -171,11 +198,13 @@ impl TaskPlanTool {
     fn handle_delete(&self, args: serde_json::Value) -> ToolResult {
         let task_id = match args.get("task_id").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Missing required field: task_id".to_string()),
-            },
+            None => {
+                return ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Missing required field: task_id".to_string()),
+                }
+            }
         };
 
         let conn = self.db.lock();
@@ -242,11 +271,13 @@ impl Tool for TaskPlanTool {
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
         let action = match args.get("action").and_then(|v| v.as_str()) {
             Some(a) => a,
-            None => return Ok(ToolResult {
-                success: false,
-                output: String::new(),
-                error: Some("Missing required field: action".to_string()),
-            }),
+            None => {
+                return Ok(ToolResult {
+                    success: false,
+                    output: String::new(),
+                    error: Some("Missing required field: action".to_string()),
+                })
+            }
         };
 
         let result = match action {

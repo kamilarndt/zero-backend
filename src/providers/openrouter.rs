@@ -306,7 +306,6 @@ impl OpenRouterProvider {
             .unwrap_or(model.trim())
             .to_string()
     }
-
 }
 
 #[async_trait]

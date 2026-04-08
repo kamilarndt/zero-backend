@@ -122,7 +122,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "threshold must be between 0 and 100")]
     fn test_invalid_threshold_panics() {
-        CpuMonitor::new(101);
+        let _ = CpuMonitor::new(101);
     }
 
     #[test]
@@ -134,16 +134,16 @@ mod tests {
     #[test]
     fn test_is_idle_enough() {
         let mut monitor = CpuMonitor::new(100); // Always idle (usage < 0% is impossible, but this tests the logic)
-        // With threshold 100, CPU is idle when usage < 0%, which is never true
-        // So this should return false
+                                                // With threshold 100, CPU is idle when usage < 0%, which is never true
+                                                // So this should return false
         assert!(!monitor.is_idle_enough());
     }
 
     #[tokio::test]
     async fn test_wait_until_idle_immediate_return() {
         let mut monitor = CpuMonitor::new(100); // Always idle (usage < 0%)
-        // With threshold 100, CPU is never idle (usage < 0% is impossible)
-        // So this should wait the full duration and return false
+                                                // With threshold 100, CPU is never idle (usage < 0% is impossible)
+                                                // So this should wait the full duration and return false
         let became_idle = monitor.wait_until_idle(Duration::from_millis(100)).await;
         assert!(!became_idle);
     }

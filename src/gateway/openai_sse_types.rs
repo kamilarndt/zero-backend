@@ -8,7 +8,7 @@ use serde::Serialize;
 #[derive(Debug, Serialize)]
 pub struct SSEChunk {
     pub id: String,
-    pub object: &'static str,  // "chat.completion.chunk"
+    pub object: &'static str, // "chat.completion.chunk"
     pub created: u64,
     pub model: String,
     pub choices: Vec<DeltaChoice>,
@@ -35,7 +35,7 @@ pub struct ToolCallDelta {
     pub index: u32,
     pub id: String,
     #[serde(rename = "type")]
-    pub tool_type: &'static str,  // "function"
+    pub tool_type: &'static str, // "function"
     pub function: ToolFunction,
 }
 

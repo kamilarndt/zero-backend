@@ -100,11 +100,9 @@ fn test_mode_switching_normal_to_insert() {
     let event = simulate_keypress(KeyCode::Char('i'), KeyModifiers::empty(), InputMode::Normal);
     assert_eq!(event, Some(AppEvent::ToggleInputMode));
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(event.unwrap(), &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(event.unwrap(), &mut app).await;
+    });
 
     // Verify mode changed to Insert
     assert_eq!(app.input_mode, InputMode::Insert);
@@ -119,11 +117,9 @@ fn test_mode_switching_insert_to_normal() {
     let event = simulate_keypress(KeyCode::Esc, KeyModifiers::empty(), InputMode::Insert);
     assert_eq!(event, Some(AppEvent::ToggleInputMode));
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(event.unwrap(), &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(event.unwrap(), &mut app).await;
+    });
 
     // Verify mode changed back to Normal
     assert_eq!(app.input_mode, InputMode::Normal);
@@ -136,54 +132,50 @@ fn test_mode_switching_complete_cycle() {
     // Start in Normal mode
     assert_eq!(app.input_mode, InputMode::Normal);
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            // Normal -> Insert
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Insert);
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        // Normal -> Insert
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Insert);
 
-            // Insert -> Normal
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Normal);
+        // Insert -> Normal
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Normal);
 
-            // Normal -> Insert again
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Insert);
+        // Normal -> Insert again
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Insert);
 
-            // Insert -> Normal again
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Normal);
-        });
+        // Insert -> Normal again
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Normal);
+    });
 }
 
 #[test]
 fn test_mode_switching_with_typing() {
     let mut app = create_test_app();
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            // Enter Insert mode
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Insert);
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        // Enter Insert mode
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Insert);
 
-            // Type a message character by character
-            let message = "Hello ZeroClaw";
-            for ch in message.chars() {
-                handle_app_event(AppEvent::CharInput(ch), &mut app).await;
-            }
+        // Type a message character by character
+        let message = "Hello ZeroClaw";
+        for ch in message.chars() {
+            handle_app_event(AppEvent::CharInput(ch), &mut app).await;
+        }
 
-            // Verify buffer
-            assert_eq!(app.input_buffer, message);
+        // Verify buffer
+        assert_eq!(app.input_buffer, message);
 
-            // Press Esc to exit Insert mode
-            handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
-            assert_eq!(app.input_mode, InputMode::Normal);
+        // Press Esc to exit Insert mode
+        handle_app_event(AppEvent::ToggleInputMode, &mut app).await;
+        assert_eq!(app.input_mode, InputMode::Normal);
 
-            // Buffer should be preserved
-            assert_eq!(app.input_buffer, message);
-        });
+        // Buffer should be preserved
+        assert_eq!(app.input_buffer, message);
+    });
 }
 
 #[test]
@@ -191,26 +183,24 @@ fn test_mode_switching_with_backspace() {
     let mut app = create_test_app();
     app.input_mode = InputMode::Insert;
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            // Type some text
-            app.input_buffer = "Hello".to_string();
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        // Type some text
+        app.input_buffer = "Hello".to_string();
 
-            // Press backspace
-            handle_app_event(AppEvent::Backspace, &mut app).await;
-            assert_eq!(app.input_buffer, "Hell");
+        // Press backspace
+        handle_app_event(AppEvent::Backspace, &mut app).await;
+        assert_eq!(app.input_buffer, "Hell");
 
-            // More backspaces
-            handle_app_event(AppEvent::Backspace, &mut app).await;
-            handle_app_event(AppEvent::Backspace, &mut app).await;
-            assert_eq!(app.input_buffer, "He");
+        // More backspaces
+        handle_app_event(AppEvent::Backspace, &mut app).await;
+        handle_app_event(AppEvent::Backspace, &mut app).await;
+        assert_eq!(app.input_buffer, "He");
 
-            // Backspace on empty buffer
-            app.input_buffer.clear();
-            handle_app_event(AppEvent::Backspace, &mut app).await;
-            assert_eq!(app.input_buffer, "");
-        });
+        // Backspace on empty buffer
+        app.input_buffer.clear();
+        handle_app_event(AppEvent::Backspace, &mut app).await;
+        assert_eq!(app.input_buffer, "");
+    });
 }
 
 // ============================================================================
@@ -228,11 +218,9 @@ fn test_session_creation_ctrl_t() {
     let event = simulate_keypress(KeyCode::Char('t'), KeyModifiers::CONTROL, InputMode::Normal);
     assert_eq!(event, Some(AppEvent::NewSession));
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(event.unwrap(), &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(event.unwrap(), &mut app).await;
+    });
 
     // Verify new session created
     assert_eq!(app.sessions.len(), initial_count + 1);
@@ -253,11 +241,9 @@ fn test_session_switching_tab() {
     app.add_user_message("Message in session 1".to_string());
 
     // Switch to session 0
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::NextSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::NextSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 0);
 
@@ -265,11 +251,9 @@ fn test_session_switching_tab() {
     app.add_user_message("Message in session 0".to_string());
 
     // Switch back to session 1
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::NextSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::NextSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 1);
     assert_eq!(app.sessions[1].messages.len(), 1);
@@ -287,20 +271,16 @@ fn test_session_switching_previous() {
     assert_eq!(app.active_session, 2);
 
     // Press Tab (wraps to 0)
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::NextSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::NextSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 0);
 
     // Press Shift+Tab (goes to 2)
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::PrevSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::PrevSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 2);
 }
@@ -320,11 +300,9 @@ fn test_session_close_with_multiple() {
     assert_eq!(app.sessions[app.active_session].messages.len(), 1);
 
     // Close current session (should switch to session 1)
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::CloseSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::CloseSession, &mut app).await;
+    });
 
     assert_eq!(app.sessions.len(), 2);
     assert_eq!(app.active_session, 1);
@@ -342,11 +320,9 @@ fn test_session_close_last_session() {
     assert_eq!(app.sessions[0].messages.len(), 1);
 
     // Close last session (should clear messages but keep session)
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::CloseSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::CloseSession, &mut app).await;
+    });
 
     // Session still exists but is cleared
     assert_eq!(app.sessions.len(), 1);
@@ -398,11 +374,9 @@ fn test_session_switching_with_tab_key() {
     assert_eq!(app.active_session, 2);
 
     // Tab should wrap to 0
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::NextSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::NextSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 0);
 }
@@ -421,11 +395,9 @@ fn test_session_switching_with_shift_tab() {
     app.active_session = 0;
 
     // Shift+Tab should go to last session (2)
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::PrevSession, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::PrevSession, &mut app).await;
+    });
 
     assert_eq!(app.active_session, 2);
 }
@@ -442,21 +414,35 @@ fn test_send_message_in_insert_mode() {
 
     let initial_msg_count = app.sessions[app.active_session].messages.len();
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            // Press Enter to send
-            handle_app_event(AppEvent::SendMessage, &mut app).await;
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        // Press Enter to send
+        handle_app_event(AppEvent::SendMessage, &mut app).await;
 
-            // Verify message was added
-            assert_eq!(app.sessions[app.active_session].messages.len(), initial_msg_count + 1);
-            assert_eq!(app.sessions[app.active_session].messages.last().unwrap().role,
-                      MessageRole::User);
-            assert_eq!(app.sessions[app.active_session].messages.last().unwrap().content, "Test message");
+        // Verify message was added
+        assert_eq!(
+            app.sessions[app.active_session].messages.len(),
+            initial_msg_count + 1
+        );
+        assert_eq!(
+            app.sessions[app.active_session]
+                .messages
+                .last()
+                .unwrap()
+                .role,
+            MessageRole::User
+        );
+        assert_eq!(
+            app.sessions[app.active_session]
+                .messages
+                .last()
+                .unwrap()
+                .content,
+            "Test message"
+        );
 
-            // Buffer should be cleared
-            assert_eq!(app.input_buffer, "");
-        });
+        // Buffer should be cleared
+        assert_eq!(app.input_buffer, "");
+    });
 }
 
 #[test]
@@ -467,15 +453,16 @@ fn test_empty_input_send_message() {
 
     let initial_msg_count = app.sessions[app.active_session].messages.len();
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            // Try to send empty message
-            handle_app_event(AppEvent::SendMessage, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        // Try to send empty message
+        handle_app_event(AppEvent::SendMessage, &mut app).await;
+    });
 
     // No message should be added
-    assert_eq!(app.sessions[app.active_session].messages.len(), initial_msg_count);
+    assert_eq!(
+        app.sessions[app.active_session].messages.len(),
+        initial_msg_count
+    );
 }
 
 #[test]
@@ -490,21 +477,17 @@ fn test_scrolling_chat() {
     let initial_scroll = app.chat_scroll;
 
     // Scroll up
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::ScrollUp, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::ScrollUp, &mut app).await;
+    });
 
     // Scroll should increase
     assert!(app.chat_scroll > initial_scroll);
 
     // Scroll down
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::ScrollDown, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::ScrollDown, &mut app).await;
+    });
 
     // Should return toward initial scroll
     assert!(app.chat_scroll < initial_scroll + 1);
@@ -522,11 +505,9 @@ fn test_quit_flag() {
     let event = simulate_keypress(KeyCode::Char('q'), KeyModifiers::CONTROL, InputMode::Normal);
     assert_eq!(event, Some(AppEvent::Quit));
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(event.unwrap(), &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(event.unwrap(), &mut app).await;
+    });
 
     assert!(app.should_quit);
 }
@@ -535,11 +516,9 @@ fn test_quit_flag() {
 fn test_spawn_agent() {
     let mut app = create_test_app();
 
-    tokio::runtime::Runtime::new()
-        .unwrap()
-        .block_on(async {
-            handle_app_event(AppEvent::SpawnAgent, &mut app).await;
-        });
+    tokio::runtime::Runtime::new().unwrap().block_on(async {
+        handle_app_event(AppEvent::SpawnAgent, &mut app).await;
+    });
 
     // Should have added a system message and an agent
     assert!(!app.sessions[app.active_session].messages.is_empty());
@@ -618,10 +597,14 @@ async fn test_async_event_handling_with_timeout() {
     // Use timeout to prevent hangs
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(1),
-        handle_app_event(AppEvent::NewSession, &mut app)
-    ).await;
+        handle_app_event(AppEvent::NewSession, &mut app),
+    )
+    .await;
 
-    assert!(result.is_ok(), "Event handling should complete within timeout");
+    assert!(
+        result.is_ok(),
+        "Event handling should complete within timeout"
+    );
     assert_eq!(app.sessions.len(), 2);
 }
 
@@ -636,16 +619,17 @@ async fn test_async_multiple_events_sequence() {
         AppEvent::SpawnAgent,
     ];
 
-    let result = tokio::time::timeout(
-        std::time::Duration::from_secs(1),
-        async {
-            for event in events {
-                handle_app_event(event, &mut app).await;
-            }
+    let result = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+        for event in events {
+            handle_app_event(event, &mut app).await;
         }
-    ).await;
+    })
+    .await;
 
-    assert!(result.is_ok(), "Multiple events should be processed within timeout");
+    assert!(
+        result.is_ok(),
+        "Multiple events should be processed within timeout"
+    );
     assert_eq!(app.sessions.len(), 2);
     assert_eq!(app.active_agents.len(), 1);
 }

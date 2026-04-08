@@ -61,7 +61,12 @@ pub struct AgentTask {
 
 impl AgentTask {
     /// Create a new task with a generated ID and timestamps
-    pub fn new(title: String, status: TaskStatus, parent_id: Option<String>, assigned_hand: Option<String>) -> Self {
+    pub fn new(
+        title: String,
+        status: TaskStatus,
+        parent_id: Option<String>,
+        assigned_hand: Option<String>,
+    ) -> Self {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -157,7 +162,10 @@ pub fn update_task_status(
 }
 
 /// List tasks with optional status filter
-pub fn list_tasks(conn: &Connection, status: Option<TaskStatus>) -> Result<Vec<AgentTask>, rusqlite::Error> {
+pub fn list_tasks(
+    conn: &Connection,
+    status: Option<TaskStatus>,
+) -> Result<Vec<AgentTask>, rusqlite::Error> {
     let mut stmt = if let Some(_filter_status) = status {
         conn.prepare(
             "SELECT id, title, status, parent_id, assigned_hand, created_at, updated_at
@@ -197,7 +205,10 @@ pub fn delete_task(conn: &Connection, task_id: &str) -> Result<(), rusqlite::Err
 }
 
 /// Get child tasks of a parent task
-pub fn get_child_tasks(conn: &Connection, parent_id: &str) -> Result<Vec<AgentTask>, rusqlite::Error> {
+pub fn get_child_tasks(
+    conn: &Connection,
+    parent_id: &str,
+) -> Result<Vec<AgentTask>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, title, status, parent_id, assigned_hand, created_at, updated_at
          FROM agent_tasks WHERE parent_id = ?1 ORDER BY created_at DESC",
@@ -267,7 +278,12 @@ mod tests {
         let parent = AgentTask::new("Parent".into(), TaskStatus::Todo, None, None);
         create_task(&conn, &parent).unwrap();
 
-        let child = AgentTask::new("Child".into(), TaskStatus::Todo, Some(parent.id.clone()), None);
+        let child = AgentTask::new(
+            "Child".into(),
+            TaskStatus::Todo,
+            Some(parent.id.clone()),
+            None,
+        );
         create_task(&conn, &child).unwrap();
 
         let children = get_child_tasks(&conn, &parent.id).unwrap();

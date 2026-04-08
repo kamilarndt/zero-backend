@@ -34,8 +34,8 @@ pub mod qq;
 pub mod signal;
 pub mod slack;
 pub mod telegram;
-pub mod telegram_inline_keyboard;
 pub mod telegram_circuit_breaker;
+pub mod telegram_inline_keyboard;
 pub mod telegram_menu_button;
 pub mod traits;
 pub mod transcription;
@@ -61,7 +61,7 @@ pub use matrix::MatrixChannel;
 pub use mattermost::MattermostChannel;
 pub use nextcloud_talk::NextcloudTalkChannel;
 pub use nostr::NostrChannel;
-pub use processing::{ChannelRuntimeContext, ChannelRouteSelection};
+pub use processing::{ChannelRouteSelection, ChannelRuntimeContext};
 pub use qq::QQChannel;
 pub use signal::SignalChannel;
 pub use slack::SlackChannel;
@@ -69,9 +69,11 @@ pub use telegram::TelegramChannel;
 pub use traits::{Channel, SendMessage};
 
 // Re-exporty dla wygody
-pub use telegram_inline_keyboard::{InlineKeyboard, InlineKeyboardButton, CallbackQuery, CallbackQueryMessage, CallbackAnswer};
 pub use telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
-pub use telegram_menu_button::{MenuButtonConfig};
+pub use telegram_inline_keyboard::{
+    CallbackAnswer, CallbackQuery, CallbackQueryMessage, InlineKeyboard, InlineKeyboardButton,
+};
+pub use telegram_menu_button::MenuButtonConfig;
 pub use wati::WatiChannel;
 pub use whatsapp::WhatsAppChannel;
 #[cfg(feature = "whatsapp-web")]
@@ -93,14 +95,11 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use tokio_util::sync::CancellationToken;
 
-/// Per-sender conversation history for channel messages.
-// Re-exported from processing module
-use processing::{ConversationHistoryMap, ProviderCacheMap, RouteSelectionMap};
 
 /// Maximum history messages to keep per sender.
 const MAX_CHANNEL_HISTORY: usize = 50;
@@ -202,11 +201,8 @@ const OPENRC_RESTART_ARGS: [&str; 2] = ["zeroclaw", "restart"];
 
 // Re-export from processing module
 use processing::{
-    InFlightSenderTaskState,
-    InFlightTaskCompletion,
-    conversation_memory_key,
-    conversation_history_key,
-    interruption_scope_key,
+    conversation_history_key, conversation_memory_key, interruption_scope_key,
+    InFlightSenderTaskState, InFlightTaskCompletion,
 };
 
 /// Strip tool-call XML tags from outgoing messages.
@@ -1662,10 +1658,8 @@ pub(crate) async fn process_channel_message_impl(
         channel_message_timeout_budget_secs(ctx.message_timeout_secs, ctx.max_tool_iterations);
 
     // Filter skills based on thread's active skills
-    let filtered_skills: Vec<crate::skills::Skill> = load_skills_by_name(
-        &ctx.all_skills,
-        &msg.active_skills,
-    );
+    let filtered_skills: Vec<crate::skills::Skill> =
+        load_skills_by_name(&ctx.all_skills, &msg.active_skills);
     let thread_skills_ref: Option<&[crate::skills::Skill]> = if filtered_skills.is_empty() {
         None
     } else {
@@ -3318,7 +3312,6 @@ pub async fn start_channels(config: Config) -> Result<()> {
 
     Ok(())
 }
-
 
 // End-to-end tests
 #[cfg(test)]

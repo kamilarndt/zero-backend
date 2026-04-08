@@ -7,11 +7,11 @@
 //! - Cost history sparkline
 //! - Per-model cost breakdown
 
-use crate::state::AppState;
 use crate::state::subsystems::CostDataPoint;
+use crate::state::AppState;
 use ratatui::{
-    style::Stylize,
     layout::{Alignment, Rect},
+    style::Stylize,
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
@@ -43,8 +43,13 @@ pub fn render_cost_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
     // Access cost data from the cost panel
     let (session_cost, daily_cost, daily_limit, monthly_cost, monthly_limit) =
         if let Some(cost_panel) = app.cost_panel.try_lock() {
-            (cost_panel.session_cost, cost_panel.daily_cost, cost_panel.daily_limit,
-             cost_panel.monthly_cost, cost_panel.monthly_limit)
+            (
+                cost_panel.session_cost,
+                cost_panel.daily_cost,
+                cost_panel.daily_limit,
+                cost_panel.monthly_cost,
+                cost_panel.monthly_limit,
+            )
         } else {
             (0.0, 0.0, 10.0, 0.0, 100.0)
         };
@@ -76,10 +81,7 @@ pub fn render_cost_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
     };
 
     text.push_line(Line::styled(
-        format!(
-            "Today:  ${:.4} / ${:.2}",
-            daily_cost, daily_limit
-        ),
+        format!("Today:  ${:.4} / ${:.2}", daily_cost, daily_limit),
         Style::default().fg(daily_color),
     ));
 

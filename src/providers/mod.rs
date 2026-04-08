@@ -18,6 +18,7 @@
 
 pub mod anthropic;
 pub mod bedrock;
+pub mod common;
 pub mod compatible;
 pub mod copilot;
 pub mod gemini;
@@ -29,7 +30,6 @@ pub mod reliable;
 pub mod router;
 pub mod telnyx;
 pub mod traits;
-pub mod common;
 
 #[allow(unused_imports)]
 pub use traits::{
@@ -2441,7 +2441,8 @@ mod tests {
 
     #[test]
     fn resilient_provider_ignores_duplicate_and_invalid_fallbacks() {
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec![
@@ -2485,7 +2486,8 @@ mod tests {
     /// successfully even when the primary uses a completely different key.
     #[test]
     fn resilient_fallback_resolves_own_credential() {
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec!["lmstudio".into(), "ollama".into()],
@@ -2507,7 +2509,8 @@ mod tests {
     /// OpenAI-compatible endpoints (e.g. local LM Studio on a Docker host).
     #[test]
     fn resilient_fallback_supports_custom_url() {
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec!["custom:http://host.docker.internal:1234/v1".into()],
@@ -2528,7 +2531,8 @@ mod tests {
     /// all coexist.  Invalid entries are silently ignored; valid ones initialize.
     #[test]
     fn resilient_fallback_mixed_chain() {
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec![
@@ -2565,7 +2569,8 @@ mod tests {
     /// Osaurus works as a fallback provider alongside other named providers.
     #[test]
     fn resilient_fallback_includes_osaurus() {
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec!["osaurus".into(), "lmstudio".into()],
@@ -2858,7 +2863,8 @@ mod tests {
     fn resilient_fallback_with_profile_syntax() {
         let _guard = env_lock();
 
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec!["openai-codex:second".into()],
@@ -2882,7 +2888,8 @@ mod tests {
     fn resilient_fallback_mixed_profiles_and_custom() {
         let _guard = env_lock();
 
-        let reliability = crate::config::ReliabilityConfig { provider_model_aliases: Default::default(),
+        let reliability = crate::config::ReliabilityConfig {
+            provider_model_aliases: Default::default(),
             provider_retries: 1,
             provider_backoff_ms: 100,
             fallback_providers: vec![

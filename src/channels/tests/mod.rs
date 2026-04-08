@@ -3,18 +3,12 @@
 //! These tests verify the complete message flow from channel
 //! through agent loop to response delivery.
 
-use super::*;
-use crate::agent::loop_::*;
-use crate::config::Config;
-use crate::memory::{Memory, MemoryCategory};
+use crate::memory::Memory;
 use crate::observability::NoopObserver;
-use crate::providers::{ChatMessage, Provider};
-use crate::tools::Tool;
+use crate::providers::Provider;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio_util::sync::CancellationToken;
 
 // Test doubles
