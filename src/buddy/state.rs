@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{Blocker, EmotionalState, Personality, Situation};
+use super::{Blocker, ConversationProcessor, EmotionalState, Personality, Situation};
 
 /// Główny stan Buddy — łączy wszystkie komponenty
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -114,12 +114,18 @@ impl BuddyState {
         // przez update_blockers() wywołane wcześniej
     }
 
+    /// Convenience method — przetwarza input użytkownika i zwraca odpowiedź
+    pub fn process_input(&mut self, input: &str) -> String {
+        ConversationProcessor::process(self, input)
+    }
+
     /// Czy Buddy potrzebuje uwagi usera?
     pub fn needs_attention(&self) -> bool {
         self.emotion.needs_attention()
-            || self.blockers.iter().any(|b| {
-                b.severity >= super::BlockerSeverity::High
-            })
+            || self
+                .blockers
+                .iter()
+                .any(|b| b.severity >= super::BlockerSeverity::High)
     }
 
     /// Najwyższy severity wśród blockerów
@@ -274,5 +280,28 @@ mod tests {
         assert_eq!(buddy.emotion, buddy2.emotion);
         assert_eq!(buddy.tasks_completed, buddy2.tasks_completed);
         assert_eq!(buddy.blockers.len(), buddy2.blockers.len());
+    }
+
+    #[test]
+    fn test_process_input_returns_nonempty() {
+        let mut buddy = BuddyState::new();
+        let response = buddy.process_input("hej");
+        assert!(!response.is_empty());
+    }
+
+    #[test]
+    fn test_process_input_task_completed() {
+        let mut buddy = BuddyState::new();
+        buddy.process_input("zrobione!");
+        assert_eq!(buddy.tasks_completed, 1);
+        assert_eq!(buddy.emotion, EmotionalState::Satisfied);
+    }
+
+    #[test]
+    fn test_process_input_general_updates_emotion() {
+        let mut buddy = BuddyState::new();
+        buddy.process_input("jakieśtam losowe");
+        // General triggers UserEngaged → emotion changes from Neutral
+        assert_ne!(buddy.emotion, EmotionalState::Neutral);
     }
 }

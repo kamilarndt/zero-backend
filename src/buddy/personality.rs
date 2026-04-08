@@ -46,6 +46,24 @@ impl Personality {
         PersonalityBuilder::default()
     }
 
+    /// Poranne powitanie w stylu ziomek
+    pub fn greet(&self) -> String {
+        match self.sarcasm_level {
+            s if s >= 0.7 => format!("{} No elo, {}! Co tam, leniu? 😏", "🌅", self.name),
+            s if s >= 0.4 => format!("{} Dzień dobry, {}! Gotowy na robotę?", "☀️", self.name),
+            _ => format!("{} Cześć, {}! Miło Cię widzieć. Jak się masz?", "👋", self.name),
+        }
+    }
+
+    /// Pożegnanie w stylu ziomek
+    pub fn farewell(&self) -> String {
+        match self.sarcasm_level {
+            s if s >= 0.7 => format!("{} No to spadaj, {}. Wracaj szybko, bo się nudzę. 😤", "👋", self.name),
+            s if s >= 0.4 => format!("{} Pa, {}! Trzymaj się i nie odpuszczaj.", "✌️", self.name),
+            _ => format!("{} Do zobaczenia, {}! Byłoby mi miło znowu pogadać.", "🤗", self.name),
+        }
+    }
+
     /// Sprawdza czy poziom sarkazmu jest w zakresie
     pub fn validate(&self) -> anyhow::Result<()> {
         if !(0.0..=1.0).contains(&self.sarcasm_level) {
@@ -162,5 +180,33 @@ mod tests {
         let p2: Personality = serde_json::from_str(&json).unwrap();
         assert_eq!(p.name, p2.name);
         assert_eq!(p.language, p2.language);
+    }
+
+    #[test]
+    fn test_greet_contains_name() {
+        let p = Personality::ziomek();
+        let greeting = p.greet();
+        assert!(greeting.contains("Buddy"));
+    }
+
+    #[test]
+    fn test_greet_varies_by_sarcasm() {
+        let low = Personality::builder().sarcasm_level(0.1).build();
+        let high = Personality::builder().sarcasm_level(0.9).build();
+        assert_ne!(low.greet(), high.greet());
+    }
+
+    #[test]
+    fn test_farewell_contains_name() {
+        let p = Personality::ziomek();
+        let farewell = p.farewell();
+        assert!(farewell.contains("Buddy"));
+    }
+
+    #[test]
+    fn test_farewell_varies_by_sarcasm() {
+        let low = Personality::builder().sarcasm_level(0.1).build();
+        let high = Personality::builder().sarcasm_level(0.9).build();
+        assert_ne!(low.farewell(), high.farewell());
     }
 }

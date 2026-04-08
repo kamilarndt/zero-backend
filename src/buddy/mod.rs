@@ -12,14 +12,21 @@
 //! - [`BuddyState`] — Combined state machine tying everything together
 
 pub mod blocker;
+pub mod cli;
+pub mod conversation;
 pub mod emotional_state;
+pub mod logger;
+pub mod patterns;
 pub mod personality;
 pub mod situation;
 pub mod state;
 
 // Re-exports for ergonomic use
 pub use blocker::{Blocker, BlockerSeverity};
+pub use conversation::{ConversationIntent, ConversationProcessor};
 pub use emotional_state::EmotionalState;
+pub use logger::{ConversationLogger, ConversationOutcome, ConversationTurn};
+pub use patterns::{format_patterns, top_patterns, Pattern, PatternExtractor};
 pub use personality::Personality;
 pub use situation::Situation;
 pub use state::BuddyState;
