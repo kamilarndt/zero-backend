@@ -137,6 +137,11 @@ impl ConversationProcessor {
             return ConversationIntent::HardTaskCompleted;
         }
 
+        // Check for blocker resolution patterns (BEFORE task completion!)
+        if let Some(blocker_desc) = Self::detect_blocker_resolution(trimmed) {
+            return ConversationIntent::BlockerResolved(blocker_desc);
+        }
+
         // Task completion
         if Self::matches_any(
             trimmed,
@@ -160,11 +165,6 @@ impl ConversationProcessor {
             ],
         ) {
             return ConversationIntent::TaskCompleted;
-        }
-
-        // Check for blocker resolution patterns
-        if let Some(blocker_desc) = Self::detect_blocker_resolution(trimmed) {
-            return ConversationIntent::BlockerResolved(blocker_desc);
         }
 
         ConversationIntent::General(input.to_string())
@@ -451,12 +451,12 @@ mod tests {
     #[test]
     fn test_detect_blocker_resolution() {
         assert_eq!(
-            ConversationProcessor::detect_intent("już zrobiłem decyzję o API"),
-            ConversationIntent::BlockerResolved("decyzję o API".to_string())
+            ConversationProcessor::detect_intent("już zrobiłem decyzję o api"),
+            ConversationIntent::BlockerResolved("decyzję o api".to_string())
         );
         assert_eq!(
-            ConversationProcessor::detect_intent("zdecydowałem że używamy Rust"),
-            ConversationIntent::BlockerResolved("używamy Rust".to_string())
+            ConversationProcessor::detect_intent("zdecydowałem że używamy rust"),
+            ConversationIntent::BlockerResolved("używamy rust".to_string())
         );
     }
 
@@ -501,8 +501,8 @@ mod tests {
     #[test]
     fn test_process_blocker_resolved_removes_blocker() {
         let mut state = BuddyState::new();
-        state.add_blocker("decyzję o API");
-        let response = ConversationProcessor::process(&mut state, "już zrobiłem decyzję o API");
+        state.add_blocker("decyzję o api");
+        let response = ConversationProcessor::process(&mut state, "już zrobiłem decyzję o api");
         assert!(state.blockers.is_empty());
         assert!(response.contains("W końcu"));
     }
@@ -511,6 +511,7 @@ mod tests {
     fn test_process_goodbye_with_blockers() {
         let mut state = BuddyState::new();
         state.add_blocker("Coś ważnego");
+        state.process_situation(Situation::CommitmentBroken(1)); // triggers Concerned/Frustrated
         let response = ConversationProcessor::process(&mut state, "pa");
         assert!(response.contains("nie skończyliśmy"));
     }

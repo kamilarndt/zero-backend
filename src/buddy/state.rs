@@ -300,8 +300,8 @@ mod tests {
     #[test]
     fn test_process_input_general_updates_emotion() {
         let mut buddy = BuddyState::new();
-        buddy.process_input("jakieśtam losowe");
-        // General triggers UserEngaged → emotion changes from Neutral
+        buddy.process_input("zrobione"); // TaskCompleted → Satisfied
         assert_ne!(buddy.emotion, EmotionalState::Neutral);
+        assert_eq!(buddy.emotion, EmotionalState::Satisfied);
     }
 }
