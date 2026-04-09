@@ -24,11 +24,8 @@ pub mod state;
 
 // Re-exports for ergonomic use
 pub use blocker::{Blocker, BlockerSeverity};
-pub use conversation::{ConversationIntent, ConversationProcessor};
+pub use conversation::ConversationProcessor;
 pub use emotional_state::EmotionalState;
-pub use evolution::{EvolutionManager, EvolutionReport};
-pub use logger::{ConversationLogger, ConversationOutcome, ConversationTurn};
-pub use patterns::{format_patterns, top_patterns, Pattern, PatternExtractor};
 pub use personality::Personality;
 pub use situation::Situation;
 pub use state::BuddyState;

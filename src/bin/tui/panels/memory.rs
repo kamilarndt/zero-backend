@@ -7,7 +7,7 @@
 //! - Recent memory operations (store/recall/search/delete)
 //! - Memory category breakdown
 
-use crate::state::subsystems::{MemoryOpType, MemoryOperation};
+use crate::state::subsystems::MemoryOperation;
 use crate::state::AppState;
 use ratatui::{
     layout::{Alignment, Rect},

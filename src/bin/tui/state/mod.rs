@@ -13,14 +13,12 @@ pub mod http;
 pub mod shutdown;
 pub mod subsystems;
 
-pub use channels::{StateSnapshot, TuiStateChannels};
+pub use channels::TuiStateChannels;
 pub use subsystems::{
-    cost_update_task, logs_update_task, memory_update_task, swarm_update_task, CostSnapshot,
-    LogLevel, LogsSnapshot, MemoryOpType, MemoryOperation, MemorySnapshot, SwarmSnapshot,
+    LogLevel, MemoryOpType, MemoryOperation,
 };
 
-use crate::state::subsystems::{AgentInfo, AgentStatus as SubAgentStatus};
-use anyhow::Result;
+use crate::state::subsystems::AgentInfo;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -124,7 +122,7 @@ impl Default for AppState {
 impl AppState {
     /// Create new AppState with demo data
     pub fn new_demo() -> Self {
-        let mut state = Self::default();
+        let state = Self::default();
 
         // Initialize with demo data
         {

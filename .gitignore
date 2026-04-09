@@ -41,3 +41,7 @@ credentials.json
 
 # Worktrees
 .worktrees/
+
+# Buddy data
+.buddy/
+*.buddydb

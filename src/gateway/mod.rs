@@ -14,8 +14,7 @@ pub mod sse;
 pub mod static_files;
 
 // Re-export OpenAI SSE types for streaming
-pub use openai_sse_types::{DeltaChoice, DeltaDelta, SSEChunk, ToolCallDelta, ToolFunction};
-pub use openai_streaming::{convert_chunk_to_sse, format_sse_event};
+pub use openai_streaming::format_sse_event;
 pub mod openai_compat;
 pub mod telegram_threads;
 pub mod telegram_webhook;

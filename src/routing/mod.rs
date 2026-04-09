@@ -13,12 +13,12 @@ pub mod subagent;
 pub mod usage_monitor;
 
 // Re-export key types for convenience
-pub use classifier::{ClassificationInput, ClassificationResult, Classifier, TaskType};
+pub use classifier::{ClassificationInput, ClassificationResult, Classifier};
 pub use router::{
-    ProviderEntry, RateAwareRouter, RateLimitConfig, RateLimitTracker, RouteDecision,
+    ProviderEntry, RateAwareRouter,
 };
-pub use subagent::{SubAgentError, SubAgentManager, SubTask};
-pub use usage_monitor::{UsageMonitor, UsageStats, UsageSyncConfig};
+pub use subagent::SubAgentManager;
+pub use usage_monitor::{UsageMonitor, UsageSyncConfig};
 
 use std::sync::Arc;
 use tokio::sync::Mutex;

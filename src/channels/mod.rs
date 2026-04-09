@@ -69,11 +69,6 @@ pub use telegram::TelegramChannel;
 pub use traits::{Channel, SendMessage};
 
 // Re-exporty dla wygody
-pub use telegram_circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitState};
-pub use telegram_inline_keyboard::{
-    CallbackAnswer, CallbackQuery, CallbackQueryMessage, InlineKeyboard, InlineKeyboardButton,
-};
-pub use telegram_menu_button::MenuButtonConfig;
 pub use wati::WatiChannel;
 pub use whatsapp::WhatsAppChannel;
 #[cfg(feature = "whatsapp-web")]

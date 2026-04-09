@@ -8,7 +8,6 @@ use crate::state::cache::RequestCache;
 use crate::state::http::get_http_client;
 use chrono::{DateTime, Utc};
 use ratatui::style::Color;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;

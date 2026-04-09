@@ -4,8 +4,8 @@
 //! the terminal interface with the 5-panel dashboard layout.
 
 use super::state::{
-    AgentState, AgentStatus, AppState, ChatPanel, CostPanel, InputMode, LogPanel, MemoryPanel,
-    Message, MessageRole, PanelVisibility, SwarmPanel,
+    AgentState, AppState, InputMode,
+    Message, MessageRole,
 };
 use chrono::Utc;
 use ratatui::{
@@ -16,7 +16,6 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Tabs, Wrap},
     Frame,
 };
-use std::sync::{Arc, Mutex};
 
 // Panel rendering functions
 use crate::panels::{

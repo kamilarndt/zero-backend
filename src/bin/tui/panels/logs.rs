@@ -13,7 +13,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::Stylize,
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
@@ -108,7 +108,7 @@ pub fn render_logs_panel(frame: &mut Frame, area: Rect, _app: &AppState, state: 
     }
 
     // Level filter indicator
-    let title = format!(
+    let _title = format!(
         " Logs [{}:{}] ",
         state.log_level.as_str(),
         filtered_logs.len()

@@ -13,7 +13,7 @@ use ratatui::{
     layout::{Alignment, Rect},
     style::Stylize,
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
@@ -56,7 +56,7 @@ pub fn render_cost_panel(frame: &mut Frame, area: Rect, app: &AppState, state: &
 
     // Get current router status for display
     let provider = &app.router_status.active_provider;
-    let quota_percent = app.router_status.quota_used_percent;
+    let _quota_percent = app.router_status.quota_used_percent;
 
     // Header: Session Cost
     let cost_color = if session_cost > daily_limit * 0.8 {

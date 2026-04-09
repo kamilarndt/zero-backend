@@ -11,7 +11,7 @@ use crate::state::{AppState, Message, MessageRole};
 use ratatui::{
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span, Text},
+    text::{Line, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
     Frame,
 };
